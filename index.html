@@ -750,6 +750,7 @@
       <div class="controls-row">
         <div class="calc-controls">
           <button id="calculateBtn" class="calculate-btn" type="button">Calculate</button>
+          <button id="anotherLayoutBtn" class="reset-btn" type="button">Another Layout</button>
           <button id="resetBtn" class="reset-btn" type="button">Reset Defaults</button>
         </div>
         <div class="status-wrap" aria-live="polite">
@@ -812,6 +813,7 @@
       const MAX_USABLE_PIECES = CELLS / PIECE_SIZE;
       const INPUT_DEBOUNCE_MS = 420;
       const WORKER_RETRY_LIMIT = 1;
+      const VARIANT_MAX_ATTEMPTS = 64;
       const DEFAULT_COUNTS = { A: 3, B: 2, C: 4, D: 2, E: 3 };
 
       const PIECES = [
@@ -846,6 +848,7 @@
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
       const calculateBtnEl = document.getElementById('calculateBtn');
+      const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
       const resetBtnEl = document.getElementById('resetBtn');
 
       const statEls = {
@@ -875,6 +878,8 @@
       let solveDebounceTimer = null;
       let solveToken = 0;
       const resultCache = new Map();
+      const solveContextByToken = new Map();
+      const layoutHistoryByCounts = new Map();
       let resizeRaf = 0;
       let liveCalculationEnabled = false;
       let isCalculating = false;
@@ -886,6 +891,7 @@
       const workerSupported = typeof Worker !== 'undefined';
       let solveStartedAt = 0;
       let progressTimerId = 0;
+      let layoutVariantNonce = 0;
       liveToggleEl.checked = false;
       setStatsCollapsed(true);
 
@@ -931,6 +937,9 @@
 
       calculateBtnEl.addEventListener('click', () => {
         startSolve('manual');
+      });
+      anotherLayoutBtnEl.addEventListener('click', () => {
+        startSolve('variant');
       });
 
       setStatus(false, 'Manual mode: press Calculate');
@@ -1002,9 +1011,10 @@
         return PIECES.map((piece) => clampInt(inputsById[piece.id].value, 0, MAX_INPUT));
       }
 
-      function startSolve(mode = 'auto') {
+      function startSolve(mode = 'auto', options = null) {
         const isManualTrigger = mode === 'manual';
-        if (!liveCalculationEnabled && !isManualTrigger) {
+        const isVariantTrigger = mode === 'variant';
+        if (!liveCalculationEnabled && !isManualTrigger && !isVariantTrigger) {
           return;
         }
 
@@ -1021,21 +1031,45 @@
         updateCalcControls();
 
         const token = ++solveToken;
-        const inputCounts = getCountsFromInputs();
-        const solverCounts = getSolverCounts(inputCounts);
-        const cacheKey = solverCounts.join(',');
+        const fixed = options && options.fixed ? options.fixed : null;
+        const variantAttempt = options && Number.isFinite(options.variantAttempt) ? Math.max(0, Math.floor(options.variantAttempt)) : 0;
+        const inputCounts = fixed ? fixed.inputCounts.slice() : getCountsFromInputs();
+        const solverCounts = fixed ? fixed.solverCounts.slice() : getSolverCounts(inputCounts);
+        const baseCountsKey = fixed ? fixed.baseCountsKey : solverCounts.join(',');
+        const variantSeed = isVariantTrigger ? ++layoutVariantNonce : 0;
+        const cacheKey = `${baseCountsKey}|v:${variantSeed}`;
+        const context = {
+          mode: isVariantTrigger ? 'variant' : 'normal',
+          variantAttempt,
+          fixed: {
+            inputCounts: inputCounts.slice(),
+            solverCounts: solverCounts.slice(),
+            baseCountsKey
+          }
+        };
+        solveContextByToken.set(token, context);
 
         if (resultCache.has(cacheKey)) {
           const cached = resultCache.get(cacheKey);
+          const signature = boardSignature(cached.board, cached.boardInstance);
+          if (context.mode === 'variant' && hasSeenLayout(baseCountsKey, signature)) {
+            if (scheduleVariantRetry(context)) {
+              return;
+            }
+            solveContextByToken.delete(token);
+            return;
+          }
           renderResult({
             ...cached,
             solveMs: 0,
             unused: inputCounts.map((v, i) => v - cached.used[i])
           });
+          rememberLayout(baseCountsKey, signature);
           hasPendingChanges = false;
           isCalculating = false;
           updateCalcControls();
           setStatus(false, cached.timedOut ? 'Solved (cached, time-limited)' : 'Solved (cached)');
+          solveContextByToken.delete(token);
           return;
         }
 
@@ -1046,14 +1080,14 @@
 
         if (!workerSupported) {
           setStatus(true, 'Web Worker unavailable. Calculating on main thread...');
-          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, started);
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, started, false, variantSeed);
           return;
         }
 
-        runSolveInWorker(token, inputCounts, solverCounts, cacheKey, started, 0);
+        runSolveInWorker(token, inputCounts, solverCounts, cacheKey, started, 0, variantSeed);
       }
 
-      function runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount) {
+      function runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount, variantSeed = 0) {
         if (token !== solveToken) {
           return;
         }
@@ -1076,12 +1110,12 @@
               destroySolverWorker();
               if (retryCount < WORKER_RETRY_LIMIT) {
                 setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-                runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+                runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
                 return;
               }
               const reason = payload.message ? String(payload.message) : 'worker error';
               setStatus(true, 'Worker failed. Using compatibility solver...', reason);
-              solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+              solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
               return;
             }
             if (payload.type === 'result') {
@@ -1101,17 +1135,18 @@
             ].filter(Boolean).join(', ') || 'worker crashed';
             if (retryCount < WORKER_RETRY_LIMIT) {
               setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-              runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+              runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
               return;
             }
             setStatus(true, 'Worker failed. Using compatibility solver...', crashMeta);
-            solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+            solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
           };
 
           solverWorker.postMessage({
             type: 'solve',
             requestId: workerRequestId,
-            counts: solverCounts
+            counts: solverCounts,
+            variantSeed
           });
         } catch (error) {
           if (token !== solveToken) {
@@ -1120,15 +1155,15 @@
           destroySolverWorker();
           if (retryCount < WORKER_RETRY_LIMIT) {
             setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-            runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+            runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
             return;
           }
           setStatus(true, 'Worker failed. Using compatibility solver...', 'worker unavailable');
-          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
         }
       }
 
-      function solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, compatibilityMode = false) {
+      function solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, compatibilityMode = false, variantSeed = 0) {
         requestAnimationFrame(() => {
           if (token !== solveToken) {
             return;
@@ -1140,7 +1175,8 @@
               null,
               compatibilityMode
                 ? { maxStates: 900000, maxMs: 1200, progressEvery: 30000 }
-                : { maxStates: 3000000, maxMs: 7000, progressEvery: 45000 }
+                : { maxStates: 3000000, maxMs: 7000, progressEvery: 45000 },
+              variantSeed
             );
             finalizeSolve(token, inputCounts, cacheKey, startedAt, result);
           } catch (error) {
@@ -1160,11 +1196,22 @@
         if (token !== solveToken) {
           return;
         }
+        const context = solveContextByToken.get(token);
+        const baseCountsKey = context && context.fixed ? context.fixed.baseCountsKey : getSolverCounts(inputCounts).join(',');
+        const signature = boardSignature(result.board, result.boardInstance);
+        if (context && context.mode === 'variant' && hasSeenLayout(baseCountsKey, signature)) {
+          if (scheduleVariantRetry(context)) {
+            return;
+          }
+          solveContextByToken.delete(token);
+          return;
+        }
 
         const ended = performance.now();
         result.solveMs = ended - startedAt;
         result.unused = inputCounts.map((v, i) => v - result.used[i]);
         resultCache.set(cacheKey, { ...result, solveMs: 0 });
+        rememberLayout(baseCountsKey, signature);
         renderResult(result);
         isCalculating = false;
         hasPendingChanges = false;
@@ -1172,6 +1219,41 @@
         stopProgressTicker();
         setStatus(false, result.timedOut ? 'Solved (time-limited)' : 'Solved');
         destroySolverWorker();
+        solveContextByToken.delete(token);
+      }
+
+      function getLayoutSet(baseCountsKey) {
+        if (!layoutHistoryByCounts.has(baseCountsKey)) {
+          layoutHistoryByCounts.set(baseCountsKey, new Set());
+        }
+        return layoutHistoryByCounts.get(baseCountsKey);
+      }
+
+      function hasSeenLayout(baseCountsKey, signature) {
+        return getLayoutSet(baseCountsKey).has(signature);
+      }
+
+      function rememberLayout(baseCountsKey, signature) {
+        getLayoutSet(baseCountsKey).add(signature);
+      }
+
+      function scheduleVariantRetry(context) {
+        const nextAttempt = context.variantAttempt + 1;
+        if (nextAttempt >= VARIANT_MAX_ATTEMPTS) {
+          isCalculating = false;
+          hasPendingChanges = false;
+          updateCalcControls();
+          stopProgressTicker();
+          setStatus(false, 'No more unique layouts available for this component set.');
+          return false;
+        }
+        isCalculating = false;
+        updateCalcControls();
+        stopProgressTicker();
+        setStatus(true, 'Searching alternate layout...', `attempt ${nextAttempt + 1}/${VARIANT_MAX_ATTEMPTS}`);
+        solveContextByToken.delete(solveToken);
+        startSolve('variant', { fixed: context.fixed, variantAttempt: nextAttempt });
+        return true;
       }
 
       function setStatus(searching, text, meta = '') {
@@ -1309,6 +1391,7 @@
         parts.push(getOptimisticBounds.toString());
         parts.push(countHoles.toString());
         parts.push(boardSignature.toString());
+        parts.push(boardVariantScore.toString());
         parts.push(popcount32.toString());
         parts.push(popcount56.toString());
         parts.push(solveOptimalLayout.toString());
@@ -1322,6 +1405,7 @@
             ensureInitialized();
             const rawCounts = Array.isArray(data.counts) ? data.counts : [];
             const counts = new Array(PIECES.length).fill(0);
+            const variantSeed = Number.isFinite(Number(data.variantSeed)) ? Number(data.variantSeed) : 0;
             for (let i = 0; i < PIECES.length; i++) {
               const value = Number(rawCounts[i] || 0);
               const safe = Number.isFinite(value) ? Math.floor(value) : 0;
@@ -1334,7 +1418,7 @@
                 statesSearched,
                 placementsSearched
               });
-            });
+            }, null, variantSeed);
             self.postMessage({
               type: 'result',
               requestId: data.requestId,
@@ -1362,7 +1446,7 @@
       // ------------------------------
       // Solver
       // ------------------------------
-      function solveOptimalLayout(initialCounts, progressCallback = null, limits = null) {
+      function solveOptimalLayout(initialCounts, progressCallback = null, limits = null, variantSeed = 0) {
         const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : 3000000;
         const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : 7000;
         const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : 45000;
@@ -1391,6 +1475,7 @@
           filled: -1,
           holes: Number.POSITIVE_INFINITY,
           bottomCompact: Number.NEGATIVE_INFINITY,
+          tieScore: Number.NEGATIVE_INFINITY,
           signature: '~',
           board: new Int8Array(CELLS).fill(-1),
           boardInstance: new Int32Array(CELLS).fill(-1),
@@ -1553,6 +1638,7 @@
           }
 
           const holes = countHoles(occMask);
+          const tieScore = boardVariantScore(boardType, variantSeed);
           let signature = best.signature;
 
           if (lines === best.lines && filled === best.filled) {
@@ -1560,21 +1646,25 @@
               return;
             }
             if (holes === best.holes && bottomCompact === best.bottomCompact) {
-              signature = boardSignature(boardType);
-              if (signature >= best.signature) {
+              if (tieScore < best.tieScore) {
+                return;
+              }
+              signature = boardSignature(boardType, boardInstance);
+              if (tieScore === best.tieScore && signature >= best.signature) {
                 return;
               }
             }
           }
 
           if (lines > best.lines || filled > best.filled) {
-            signature = boardSignature(boardType);
+            signature = boardSignature(boardType, boardInstance);
           }
 
           best.lines = lines;
           best.filled = filled;
           best.holes = holes;
           best.bottomCompact = bottomCompact;
+          best.tieScore = tieScore;
           best.signature = signature;
           best.board = Int8Array.from(boardType);
           best.boardInstance = Int32Array.from(boardInstance);
@@ -1942,13 +2032,33 @@
         return holes;
       }
 
-      function boardSignature(boardType) {
+      function boardSignature(boardType, boardInstance = null) {
         let out = '';
         for (let i = 0; i < boardType.length; i++) {
           const t = boardType[i];
           out += t < 0 ? '.' : PIECES[t].id;
         }
+
+        if (!boardInstance) {
+          return out;
+        }
+
+        out += '|';
+        for (let i = 0; i < boardInstance.length; i++) {
+          const inst = boardInstance[i];
+          out += inst < 0 ? '.' : inst.toString(36);
+          out += ',';
+        }
         return out;
+      }
+
+      function boardVariantScore(boardType, seed = 0) {
+        let hash = (2166136261 ^ (seed | 0)) >>> 0;
+        for (let i = 0; i < boardType.length; i++) {
+          hash ^= (boardType[i] + 2) & 0xff;
+          hash = Math.imul(hash, 16777619) >>> 0;
+        }
+        return hash;
       }
 
       // ------------------------------
