@@ -915,16 +915,18 @@
             <span>Live calculation (Beta)</span>
           </label>
         </div>
+        <div class="beta-row">
+          <label class="live-toggle" for="fillPriorityToggle">
+            <input id="fillPriorityToggle" type="checkbox" checked />
+            <span>Prioritize full board fill</span>
+          </label>
+        </div>
         <div class="advanced-mode-card">
           <h4 class="advanced-mode-heading">Advanced mode</h4>
           <div class="advanced-mode-options" role="radiogroup" aria-label="Advanced mode">
             <label class="advanced-mode-option" for="modeBalanced">
-              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" />
+              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" checked />
               <span>Balanced (rows first)</span>
-            </label>
-            <label class="advanced-mode-option" for="modeFullBoard">
-              <input id="modeFullBoard" type="radio" name="advancedMode" value="fullBoard" checked />
-              <span>Full board first</span>
             </label>
             <label class="advanced-mode-option" for="modePreferSelected">
               <input id="modePreferSelected" type="radio" name="advancedMode" value="preferSelected" />
@@ -993,7 +995,6 @@
       const DEFAULT_COUNTS = { A: 3, B: 2, C: 4, D: 2, E: 3 };
       const ADVANCED_MODE = Object.freeze({
         BALANCED: 'balanced',
-        FULL_BOARD: 'fullBoard',
         PREFER_SELECTED: 'preferSelected',
         STRICT_SELECTED: 'strictSelected'
       });
@@ -1031,6 +1032,7 @@
       const statusTextEl = document.getElementById('statusText');
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
+      const fillPriorityToggleEl = document.getElementById('fillPriorityToggle');
       const advancedModeInputEls = Array.from(document.querySelectorAll('input[name="advancedMode"]'));
       const priorityComponentsEl = document.getElementById('priorityComponents');
       const priorityComponentsGridEl = document.getElementById('priorityComponentsGrid');
@@ -1083,6 +1085,9 @@
       let progressTimerId = 0;
       let layoutVariantNonce = 0;
       liveToggleEl.checked = false;
+      if (fillPriorityToggleEl) {
+        fillPriorityToggleEl.checked = true;
+      }
       setStatsCollapsed(true);
       setStatsSectionCollapsed(true);
       syncAdvancedModeUi();
@@ -1138,6 +1143,14 @@
           resultCache.clear();
           layoutHistoryByCounts.clear();
           syncAdvancedModeUi();
+          updateRulesText();
+          scheduleSolve(false);
+        });
+      }
+      if (fillPriorityToggleEl) {
+        fillPriorityToggleEl.addEventListener('change', () => {
+          resultCache.clear();
+          layoutHistoryByCounts.clear();
           updateRulesText();
           scheduleSolve(false);
         });
@@ -1580,7 +1593,7 @@
         const selectedMask = isComponentPriorityMode(mode) ? getSelectedPriorityMask() : 0;
         return {
           mode,
-          prioritizeFullBoard: mode === ADVANCED_MODE.FULL_BOARD,
+          prioritizeFullBoard: !!(fillPriorityToggleEl && fillPriorityToggleEl.checked),
           selectedMask
         };
       }
@@ -1588,7 +1601,8 @@
       function objectiveKey(objective) {
         const mode = objective && typeof objective.mode === 'string' ? objective.mode : ADVANCED_MODE.BALANCED;
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
-        return `${mode}|m:${selectedMask}`;
+        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
+        return `${mode}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}`;
       }
 
       function updateRulesText() {
@@ -1597,14 +1611,19 @@
         const selectedMask = getSelectedPriorityMask();
         const selectedIds = getSelectedPriorityIds(selectedMask);
         const selectedLabel = selectedIds.length ? selectedIds.join(', ') : 'none selected';
+        const prioritizeFullBoard = !!(fillPriorityToggleEl && fillPriorityToggleEl.checked);
 
-        if (mode === ADVANCED_MODE.FULL_BOARD) {
-          rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
-          return;
-        }
         if (mode === ADVANCED_MODE.PREFER_SELECTED) {
           if (!selectedIds.length) {
+            if (prioritizeFullBoard) {
+              rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate component preference.';
+              return;
+            }
             rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate component preference.';
+            return;
+          }
+          if (prioritizeFullBoard) {
+            rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) usage of selected components (${selectedLabel})</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
             return;
           }
           rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
@@ -1612,10 +1631,22 @@
         }
         if (mode === ADVANCED_MODE.STRICT_SELECTED) {
           if (!selectedIds.length) {
+            if (prioritizeFullBoard) {
+              rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
+              return;
+            }
             rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
             return;
           }
+          if (prioritizeFullBoard) {
+            rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) completed horizontal rows</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+            return;
+          }
           rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+          return;
+        }
+        if (prioritizeFullBoard) {
+          rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
           return;
         }
         rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
@@ -1775,7 +1806,7 @@
             const selectedMaskRaw = Number(data.objective && data.objective.selectedMask);
             const objective = {
               mode,
-              prioritizeFullBoard: mode === 'fullBoard' || !!(data.objective && data.objective.prioritizeFullBoard),
+              prioritizeFullBoard: !!(data.objective && data.objective.prioritizeFullBoard),
               selectedMask: Number.isFinite(selectedMaskRaw) ? (selectedMaskRaw | 0) : 0
             };
             for (let i = 0; i < PIECES.length; i++) {
@@ -1820,12 +1851,11 @@
       // ------------------------------
       function solveOptimalLayout(initialCounts, progressCallback = null, limits = null, variantSeed = 0, objective = null) {
         const MODE_BALANCED = 'balanced';
-        const MODE_FULL_BOARD = 'fullBoard';
         const MODE_PREFER_SELECTED = 'preferSelected';
         const MODE_STRICT_SELECTED = 'strictSelected';
         const rawMode = objective && typeof objective.mode === 'string' ? objective.mode : MODE_BALANCED;
-        const mode = [MODE_BALANCED, MODE_FULL_BOARD, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
-        const prioritizeFullBoard = mode === MODE_FULL_BOARD || !!(objective && objective.prioritizeFullBoard);
+        const mode = [MODE_BALANCED, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
+        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === MODE_PREFER_SELECTED || mode === MODE_STRICT_SELECTED) && selectedMask !== 0;
         const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : (prioritizeFullBoard ? 12000000 : 5000000);
@@ -2569,7 +2599,7 @@
       // ------------------------------
       function canStillBeatBest(upperLines, upperFilled, upperSelectedUsed, best, objective = null) {
         const mode = objective && typeof objective.mode === 'string' ? objective.mode : 'balanced';
-        const prioritizeFullBoard = mode === 'fullBoard' || !!(objective && objective.prioritizeFullBoard);
+        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === 'preferSelected' || mode === 'strictSelected') && selectedMask !== 0;
 
