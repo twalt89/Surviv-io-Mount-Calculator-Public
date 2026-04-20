@@ -1078,7 +1078,7 @@
         [CALC_DEPTH.LONG]: 3
       });
       const LOCAL_STATE_KEY = 'survivorio-spacecalc-state:v1';
-      const LOCAL_STATE_VERSION = 1;
+      const LOCAL_STATE_VERSION = 2;
       const LOCAL_STATE_SAVE_DEBOUNCE_MS = 140;
 
       const PIECES = [
@@ -1460,6 +1460,7 @@
             advancedMode: ADVANCED_MODE.BALANCED,
             calcDepth: CALC_DEPTH.SHORT,
             priorityMask: 0,
+            componentCounts: getDefaultCountsById(),
             panel: {
               advancedSettingsCollapsed: false,
               advancedPriorityCollapsed: true,
@@ -1492,6 +1493,8 @@
       function normalizePersistedAppState(rawState) {
         const defaults = getDefaultPersistedState();
         const safeState = rawState && typeof rawState === 'object' ? rawState : {};
+        const rawVersion = Number(safeState.version);
+        const isLegacySharedCountVersion = !Number.isFinite(rawVersion) || rawVersion < 2;
         const safeGlobal = safeState.global && typeof safeState.global === 'object' ? safeState.global : {};
         const safePanel = safeGlobal.panel && typeof safeGlobal.panel === 'object' ? safeGlobal.panel : {};
         const advancedMode = Object.values(ADVANCED_MODE).includes(safeGlobal.advancedMode) ? safeGlobal.advancedMode : defaults.global.advancedMode;
@@ -1512,6 +1515,28 @@
             counts: normalizeCountsById(boardEntry.counts)
           };
         }
+        // Migration support:
+        // Prefer the new shared global component counts, otherwise fallback to
+        // any previously saved board-specific counts (current board first).
+        let componentCounts = normalizeCountsById(safeGlobal.componentCounts);
+        const hasGlobalComponentCounts = !isLegacySharedCountVersion
+          && safeGlobal.componentCounts
+          && typeof safeGlobal.componentCounts === 'object';
+        if (!hasGlobalComponentCounts) {
+          const candidateBoardKeys = [String(COLS), ...BOARD_WIDTH_OPTIONS.map((w) => String(w))];
+          let migratedCounts = null;
+          for (const key of candidateBoardKeys) {
+            const entry = boards[key];
+            if (!entry || !entry.counts) {
+              continue;
+            }
+            migratedCounts = entry.counts;
+            break;
+          }
+          if (migratedCounts) {
+            componentCounts = normalizeCountsById(migratedCounts);
+          }
+        }
 
         return {
           version: LOCAL_STATE_VERSION,
@@ -1521,6 +1546,7 @@
             advancedMode,
             calcDepth,
             priorityMask,
+            componentCounts,
             panel: {
               advancedSettingsCollapsed: !!safePanel.advancedSettingsCollapsed,
               advancedPriorityCollapsed: safePanel.advancedPriorityCollapsed !== false,
@@ -1582,12 +1608,11 @@
             input.checked = (normalized.global.priorityMask & (1 << i)) !== 0;
           }
 
-          const boardKey = String(COLS);
-          const boardCounts = normalized.boards[boardKey] ? normalizeCountsById(normalized.boards[boardKey].counts) : getDefaultCountsById();
+          const sharedCounts = normalizeCountsById(normalized.global.componentCounts);
           for (const piece of PIECES) {
             const input = inputsById[piece.id];
             if (input) {
-              input.value = String(clampInt(boardCounts[piece.id], 0, MAX_INPUT));
+              input.value = String(clampInt(sharedCounts[piece.id], 0, MAX_INPUT));
             }
           }
 
@@ -1599,7 +1624,7 @@
         }
       }
 
-      function collectCurrentBoardCounts() {
+      function collectCurrentComponentCounts() {
         const counts = {};
         for (const piece of PIECES) {
           const input = inputsById[piece.id];
@@ -1615,6 +1640,7 @@
           advancedMode: getActiveAdvancedMode(),
           calcDepth: getActiveCalcDepth(),
           priorityMask: getSelectedPriorityMask(),
+          componentCounts: collectCurrentComponentCounts(),
           panel: {
             advancedSettingsCollapsed: !!(statsPanelEl && statsPanelEl.classList.contains('collapsed')),
             advancedPriorityCollapsed: !!(advancedModeSectionEl && advancedModeSectionEl.classList.contains('collapsed')),
@@ -1632,12 +1658,10 @@
           persistStateTimer = 0;
         }
         const current = normalizePersistedAppState(persistedAppState);
-        const boards = { ...current.boards };
-        boards[String(COLS)] = { counts: collectCurrentBoardCounts() };
         const nextState = normalizePersistedAppState({
           version: LOCAL_STATE_VERSION,
           global: collectCurrentGlobalState(),
-          boards
+          boards: current.boards
         });
         persistedAppState = nextState;
         try {
