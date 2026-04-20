@@ -613,6 +613,99 @@
       padding: 2px 2px 0;
     }
 
+    .advanced-mode-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(0, 0, 0, 0.16);
+    }
+
+    .advanced-mode-heading {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 900;
+      color: #1d2340;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+    }
+
+    .advanced-mode-options {
+      display: grid;
+      gap: 6px;
+    }
+
+    .advanced-mode-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #1f2947;
+      user-select: none;
+      font-size: 0.93rem;
+    }
+
+    .advanced-mode-option input {
+      inline-size: 17px;
+      block-size: 17px;
+      accent-color: #3057a8;
+      cursor: pointer;
+    }
+
+    .priority-components {
+      display: grid;
+      gap: 6px;
+    }
+
+    .priority-components.is-disabled {
+      opacity: 0.62;
+    }
+
+    .priority-components-title {
+      margin: 0;
+      font-size: 0.83rem;
+      font-weight: 800;
+      color: #243255;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+    }
+
+    .priority-components-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .priority-component-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(18, 26, 44, 0.45);
+      background: rgba(248, 250, 255, 0.88);
+      font-size: 0.84rem;
+      font-weight: 800;
+      color: #1d2440;
+      user-select: none;
+    }
+
+    .priority-component-pill input {
+      inline-size: 15px;
+      block-size: 15px;
+      accent-color: #3057a8;
+      cursor: pointer;
+    }
+
+    .priority-component-swatch {
+      inline-size: 10px;
+      block-size: 10px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      flex: 0 0 auto;
+    }
+
     .rules {
       margin: 0;
       padding: 10px;
@@ -777,11 +870,31 @@
             <span>Live calculation (Beta)</span>
           </label>
         </div>
-        <div class="beta-row">
-          <label class="live-toggle" for="fillPriorityToggle">
-            <input id="fillPriorityToggle" type="checkbox" />
-            <span>Prioritize full board fill</span>
-          </label>
+        <div class="advanced-mode-card">
+          <h4 class="advanced-mode-heading">Advanced mode</h4>
+          <div class="advanced-mode-options" role="radiogroup" aria-label="Advanced mode">
+            <label class="advanced-mode-option" for="modeBalanced">
+              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" />
+              <span>Balanced (rows first)</span>
+            </label>
+            <label class="advanced-mode-option" for="modeFullBoard">
+              <input id="modeFullBoard" type="radio" name="advancedMode" value="fullBoard" checked />
+              <span>Full board first</span>
+            </label>
+            <label class="advanced-mode-option" for="modePreferSelected">
+              <input id="modePreferSelected" type="radio" name="advancedMode" value="preferSelected" />
+              <span>Prefer selected components (soft)</span>
+            </label>
+            <label class="advanced-mode-option" for="modeStrictSelected">
+              <input id="modeStrictSelected" type="radio" name="advancedMode" value="strictSelected" />
+              <span>Prioritize selected components (strict)</span>
+            </label>
+          </div>
+
+          <div id="priorityComponents" class="priority-components">
+            <p class="priority-components-title">Priority components</p>
+            <div id="priorityComponentsGrid" class="priority-components-grid"></div>
+          </div>
         </div>
         <p class="rules">
           Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.
@@ -821,6 +934,12 @@
       const WORKER_RETRY_LIMIT = 1;
       const VARIANT_MAX_ATTEMPTS = 64;
       const DEFAULT_COUNTS = { A: 3, B: 2, C: 4, D: 2, E: 3 };
+      const ADVANCED_MODE = Object.freeze({
+        BALANCED: 'balanced',
+        FULL_BOARD: 'fullBoard',
+        PREFER_SELECTED: 'preferSelected',
+        STRICT_SELECTED: 'strictSelected'
+      });
 
       const PIECES = [
         { id: 'A', name: 'Piece A', color: getCssVar('--a'), cells: [[0,0],[0,1],[0,2],[1,1]] },
@@ -853,7 +972,9 @@
       const statusTextEl = document.getElementById('statusText');
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
-      const fillPriorityToggleEl = document.getElementById('fillPriorityToggle');
+      const advancedModeInputEls = Array.from(document.querySelectorAll('input[name="advancedMode"]'));
+      const priorityComponentsEl = document.getElementById('priorityComponents');
+      const priorityComponentsGridEl = document.getElementById('priorityComponentsGrid');
       const rulesEl = document.querySelector('.rules');
       const calculateBtnEl = document.getElementById('calculateBtn');
       const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
@@ -871,6 +992,7 @@
       const boardCells = [];
       const inputsById = {};
       const usageCardsById = {};
+      const priorityPieceCheckboxesById = {};
       const SVG_NS = 'http://www.w3.org/2000/svg';
       const rowHighlightEls = [];
       let rowHighlightLayer = null;
@@ -882,6 +1004,7 @@
       createBoardCells();
       createInventoryControls();
       createUsageCards();
+      createPriorityComponentControls();
 
       let solveDebounceTimer = null;
       let solveToken = 0;
@@ -901,8 +1024,8 @@
       let progressTimerId = 0;
       let layoutVariantNonce = 0;
       liveToggleEl.checked = false;
-      fillPriorityToggleEl.checked = true;
       setStatsCollapsed(true);
+      syncAdvancedModeUi();
       updateRulesText();
 
       window.addEventListener('resize', () => {
@@ -945,12 +1068,15 @@
         updateCalcControls();
       });
 
-      fillPriorityToggleEl.addEventListener('change', () => {
-        resultCache.clear();
-        layoutHistoryByCounts.clear();
-        updateRulesText();
-        scheduleSolve(false);
-      });
+      for (const modeInput of advancedModeInputEls) {
+        modeInput.addEventListener('change', () => {
+          resultCache.clear();
+          layoutHistoryByCounts.clear();
+          syncAdvancedModeUi();
+          updateRulesText();
+          scheduleSolve(false);
+        });
+      }
 
       calculateBtnEl.addEventListener('click', () => {
         startSolve('manual');
@@ -978,6 +1104,92 @@
             next.searchParams.set('w', String(cols));
             window.location.href = next.toString();
           });
+        }
+      }
+
+      function createPriorityComponentControls() {
+        if (!priorityComponentsGridEl) {
+          return;
+        }
+        priorityComponentsGridEl.innerHTML = '';
+        for (const piece of PIECES) {
+          const pill = document.createElement('label');
+          pill.className = 'priority-component-pill';
+          pill.setAttribute('for', `priorityPiece${piece.id}`);
+
+          const input = document.createElement('input');
+          input.id = `priorityPiece${piece.id}`;
+          input.type = 'checkbox';
+          input.checked = false;
+          input.setAttribute('aria-label', `Prioritize ${piece.name}`);
+
+          const swatch = document.createElement('span');
+          swatch.className = 'priority-component-swatch';
+          swatch.style.backgroundColor = piece.color;
+
+          const text = document.createElement('span');
+          text.textContent = piece.id;
+
+          input.addEventListener('change', () => {
+            updateRulesText();
+            if (!isComponentPriorityMode(getActiveAdvancedMode())) {
+              return;
+            }
+            resultCache.clear();
+            layoutHistoryByCounts.clear();
+            scheduleSolve(false);
+          });
+
+          pill.appendChild(input);
+          pill.appendChild(swatch);
+          pill.appendChild(text);
+          priorityComponentsGridEl.appendChild(pill);
+          priorityPieceCheckboxesById[piece.id] = input;
+        }
+      }
+
+      function getActiveAdvancedMode() {
+        const active = advancedModeInputEls.find((input) => input.checked);
+        return active ? active.value : ADVANCED_MODE.BALANCED;
+      }
+
+      function isComponentPriorityMode(mode) {
+        return mode === ADVANCED_MODE.PREFER_SELECTED || mode === ADVANCED_MODE.STRICT_SELECTED;
+      }
+
+      function getSelectedPriorityMask() {
+        let mask = 0;
+        for (let i = 0; i < PIECES.length; i++) {
+          const piece = PIECES[i];
+          const input = priorityPieceCheckboxesById[piece.id];
+          if (input && input.checked) {
+            mask |= (1 << i);
+          }
+        }
+        return mask;
+      }
+
+      function getSelectedPriorityIds(mask = getSelectedPriorityMask()) {
+        const ids = [];
+        for (let i = 0; i < PIECES.length; i++) {
+          if ((mask & (1 << i)) !== 0) {
+            ids.push(PIECES[i].id);
+          }
+        }
+        return ids;
+      }
+
+      function syncAdvancedModeUi() {
+        const mode = getActiveAdvancedMode();
+        const enablePriority = isComponentPriorityMode(mode);
+        if (priorityComponentsEl) {
+          priorityComponentsEl.classList.toggle('is-disabled', !enablePriority);
+        }
+        for (const piece of PIECES) {
+          const input = priorityPieceCheckboxesById[piece.id];
+          if (input) {
+            input.disabled = !enablePriority;
+          }
         }
       }
 
@@ -1290,19 +1502,46 @@
       }
 
       function getSolveObjective() {
+        const mode = getActiveAdvancedMode();
+        const selectedMask = isComponentPriorityMode(mode) ? getSelectedPriorityMask() : 0;
         return {
-          prioritizeFullBoard: !!fillPriorityToggleEl.checked
+          mode,
+          prioritizeFullBoard: mode === ADVANCED_MODE.FULL_BOARD,
+          selectedMask
         };
       }
 
       function objectiveKey(objective) {
-        return objective && objective.prioritizeFullBoard ? 'full' : 'rows';
+        const mode = objective && typeof objective.mode === 'string' ? objective.mode : ADVANCED_MODE.BALANCED;
+        const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
+        return `${mode}|m:${selectedMask}`;
       }
 
       function updateRulesText() {
         if (!rulesEl) return;
-        if (fillPriorityToggleEl && fillPriorityToggleEl.checked) {
+        const mode = getActiveAdvancedMode();
+        const selectedMask = getSelectedPriorityMask();
+        const selectedIds = getSelectedPriorityIds(selectedMask);
+        const selectedLabel = selectedIds.length ? selectedIds.join(', ') : 'none selected';
+
+        if (mode === ADVANCED_MODE.FULL_BOARD) {
           rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
+          return;
+        }
+        if (mode === ADVANCED_MODE.PREFER_SELECTED) {
+          if (!selectedIds.length) {
+            rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate component preference.';
+            return;
+          }
+          rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+          return;
+        }
+        if (mode === ADVANCED_MODE.STRICT_SELECTED) {
+          if (!selectedIds.length) {
+            rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
+            return;
+          }
+          rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
           return;
         }
         rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
@@ -1458,8 +1697,12 @@
             const rawCounts = Array.isArray(data.counts) ? data.counts : [];
             const counts = new Array(PIECES.length).fill(0);
             const variantSeed = Number.isFinite(Number(data.variantSeed)) ? Number(data.variantSeed) : 0;
+            const mode = (data.objective && typeof data.objective.mode === 'string') ? data.objective.mode : 'balanced';
+            const selectedMaskRaw = Number(data.objective && data.objective.selectedMask);
             const objective = {
-              prioritizeFullBoard: !!(data.objective && data.objective.prioritizeFullBoard)
+              mode,
+              prioritizeFullBoard: mode === 'fullBoard' || !!(data.objective && data.objective.prioritizeFullBoard),
+              selectedMask: Number.isFinite(selectedMaskRaw) ? (selectedMaskRaw | 0) : 0
             };
             for (let i = 0; i < PIECES.length; i++) {
               const value = Number(rawCounts[i] || 0);
@@ -1502,7 +1745,15 @@
       // Solver
       // ------------------------------
       function solveOptimalLayout(initialCounts, progressCallback = null, limits = null, variantSeed = 0, objective = null) {
-        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
+        const MODE_BALANCED = 'balanced';
+        const MODE_FULL_BOARD = 'fullBoard';
+        const MODE_PREFER_SELECTED = 'preferSelected';
+        const MODE_STRICT_SELECTED = 'strictSelected';
+        const rawMode = objective && typeof objective.mode === 'string' ? objective.mode : MODE_BALANCED;
+        const mode = [MODE_BALANCED, MODE_FULL_BOARD, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
+        const prioritizeFullBoard = mode === MODE_FULL_BOARD || !!(objective && objective.prioritizeFullBoard);
+        const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
+        const useComponentPreference = (mode === MODE_PREFER_SELECTED || mode === MODE_STRICT_SELECTED) && selectedMask !== 0;
         const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : (prioritizeFullBoard ? 12000000 : 5000000);
         const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : (prioritizeFullBoard ? 18000 : 10000);
         const FULL_ONLY_MAX_STATES = limits && Number.isFinite(limits.fullMaxStates) ? Math.max(10000, Math.floor(limits.fullMaxStates)) : 22000000;
@@ -1532,6 +1783,7 @@
         const best = {
           lines: -1,
           filled: -1,
+          selectedUsed: -1,
           holes: Number.POSITIVE_INFINITY,
           bottomCompact: Number.NEGATIVE_INFINITY,
           tieScore: Number.NEGATIVE_INFINITY,
@@ -1704,7 +1956,34 @@
           startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         }
 
-        function dfs(index, occMask, rowDeadMask, filled, linesComplete, bottomCompact) {
+        function comparePrimaryScore(lines, filled, selectedUsed, bestRef) {
+          const bestIsFull = bestRef.filled === CELLS;
+          const candidateIsFull = filled === CELLS;
+
+          if (prioritizeFullBoard) {
+            if (candidateIsFull && !bestIsFull) return 1;
+            if (!candidateIsFull && bestIsFull) return -1;
+            if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
+            if (filled !== bestRef.filled) return filled > bestRef.filled ? 1 : -1;
+            return 0;
+          }
+
+          if (useComponentPreference && mode === MODE_STRICT_SELECTED) {
+            if (selectedUsed !== bestRef.selectedUsed) return selectedUsed > bestRef.selectedUsed ? 1 : -1;
+            if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
+            if (filled !== bestRef.filled) return filled > bestRef.filled ? 1 : -1;
+            return 0;
+          }
+
+          if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
+          if (useComponentPreference && selectedUsed !== bestRef.selectedUsed) {
+            return selectedUsed > bestRef.selectedUsed ? 1 : -1;
+          }
+          if (filled !== bestRef.filled) return filled > bestRef.filled ? 1 : -1;
+          return 0;
+        }
+
+        function dfs(index, occMask, rowDeadMask, filled, linesComplete, bottomCompact, selectedUsed) {
           if (foundPerfect || timedOut) {
             return;
           }
@@ -1727,8 +2006,21 @@
             progressCallback(statesSearched, placementsSearched);
           }
 
-          const bounds = getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces);
-          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, best, prioritizeFullBoard)) {
+          let selectedRemaining = 0;
+          if (useComponentPreference) {
+            for (let t = 0; t < PIECES.length; t++) {
+              if ((selectedMask & (1 << t)) !== 0) {
+                selectedRemaining += counts[t];
+              }
+            }
+          }
+
+          const bounds = getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces, selectedUsed, selectedRemaining);
+          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, bounds.upperSelectedUsed, best, {
+            mode,
+            prioritizeFullBoard,
+            selectedMask
+          })) {
             return;
           }
 
@@ -1739,7 +2031,7 @@
           seenStates.add(key);
 
           if (index >= CELLS || remainingPieces === 0) {
-            evaluateCandidate(occMask, linesComplete, filled, bottomCompact);
+            evaluateCandidate(occMask, linesComplete, filled, bottomCompact, selectedUsed);
             return;
           }
 
@@ -1782,14 +2074,21 @@
                 lineGain,
                 nearFill,
                 touchesDeadRows,
-                scarcity: counts[t]
+                scarcity: counts[t],
+                selectedWeight: (selectedMask & (1 << t)) !== 0 ? 1 : 0
               });
             }
           }
 
           if (moves.length > 1) {
             moves.sort((a, b) => {
+              if (useComponentPreference && mode === MODE_STRICT_SELECTED && b.selectedWeight !== a.selectedWeight) {
+                return b.selectedWeight - a.selectedWeight;
+              }
               if (b.lineGain !== a.lineGain) return b.lineGain - a.lineGain;
+              if (useComponentPreference && b.selectedWeight !== a.selectedWeight) {
+                return b.selectedWeight - a.selectedWeight;
+              }
               if (a.touchesDeadRows !== b.touchesDeadRows) return a.touchesDeadRows - b.touchesDeadRows;
               if (b.nearFill !== a.nearFill) return b.nearFill - a.nearFill;
               if (b.placement.bottomSum !== a.placement.bottomSum) return b.placement.bottomSum - a.placement.bottomSum;
@@ -1829,7 +2128,8 @@
               rowDeadMask,
               filled + PIECE_SIZE,
               linesComplete + gainedLines,
-              bottomCompact + placement.bottomSum
+              bottomCompact + placement.bottomSum,
+              selectedUsed + moves[m].selectedWeight
             );
 
             for (let c = 0; c < placement.cells.length; c++) {
@@ -1851,30 +2151,19 @@
           // Skip this cell: it becomes a fixed empty cell.
           const row = Math.floor(index / COLS);
           const nextDeadMask = rowFill[row] < COLS ? (rowDeadMask | (1 << row)) : rowDeadMask;
-          dfs(index + 1, occMask, nextDeadMask, filled, linesComplete, bottomCompact);
+          dfs(index + 1, occMask, nextDeadMask, filled, linesComplete, bottomCompact, selectedUsed);
         }
 
-        function evaluateCandidate(occMask, lines, filled, bottomCompact) {
-          const bestIsFull = best.filled === CELLS;
-          const candidateIsFull = filled === CELLS;
-          if (prioritizeFullBoard) {
-            if (bestIsFull && !candidateIsFull) {
-              return;
-            }
-            if (!bestIsFull && candidateIsFull) {
-              // Candidate beats any non-full solution; keep evaluating it.
-            } else if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
-              return;
-            }
-          } else if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
+        function evaluateCandidate(occMask, lines, filled, bottomCompact, selectedUsed) {
+          const primaryCmp = comparePrimaryScore(lines, filled, selectedUsed, best);
+          if (primaryCmp < 0) {
             return;
           }
-
           const holes = countHoles(occMask);
           const tieScore = boardVariantScore(boardType, variantSeed);
           let signature = best.signature;
 
-          if (lines === best.lines && filled === best.filled) {
+          if (primaryCmp === 0) {
             if (holes > best.holes || (holes === best.holes && bottomCompact < best.bottomCompact)) {
               return;
             }
@@ -1889,16 +2178,13 @@
             }
           }
 
-          const outranksBest = prioritizeFullBoard
-            ? ((candidateIsFull && !bestIsFull) || (lines > best.lines || filled > best.filled))
-            : (lines > best.lines || filled > best.filled);
-
-          if (outranksBest) {
+          if (primaryCmp > 0) {
             signature = boardSignature(boardType, boardInstance);
           }
 
           best.lines = lines;
           best.filled = filled;
+          best.selectedUsed = selectedUsed;
           best.holes = holes;
           best.bottomCompact = bottomCompact;
           best.tieScore = tieScore;
@@ -1907,16 +2193,17 @@
           best.boardInstance = Int32Array.from(boardInstance);
           best.used = Array.from(used);
 
-          if (lines === ROWS && filled === CELLS) {
+          if (!useComponentPreference && lines === ROWS && filled === CELLS) {
             foundPerfect = true;
           }
         }
 
-        dfs(0, 0n, 0, 0, 0, 0);
+        dfs(0, 0n, 0, 0, 0, 0, 0);
 
         if (best.lines < 0) {
           best.lines = 0;
           best.filled = 0;
+          best.selectedUsed = 0;
           best.holes = 0;
           best.bottomCompact = 0;
         }
@@ -2206,7 +2493,12 @@
       // ------------------------------
       // Utility: scoring and pruning
       // ------------------------------
-      function canStillBeatBest(upperLines, upperFilled, best, prioritizeFullBoard = false) {
+      function canStillBeatBest(upperLines, upperFilled, upperSelectedUsed, best, objective = null) {
+        const mode = objective && typeof objective.mode === 'string' ? objective.mode : 'balanced';
+        const prioritizeFullBoard = mode === 'fullBoard' || !!(objective && objective.prioritizeFullBoard);
+        const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
+        const useComponentPreference = (mode === 'preferSelected' || mode === 'strictSelected') && selectedMask !== 0;
+
         if (prioritizeFullBoard) {
           const bestIsFull = best.filled === CELLS;
           const canStillBeFull = upperFilled >= CELLS;
@@ -2217,21 +2509,40 @@
             return true;
           }
         }
+
+        if (useComponentPreference && mode === 'strictSelected') {
+          if (upperSelectedUsed < best.selectedUsed) {
+            return false;
+          }
+          if (upperSelectedUsed === best.selectedUsed && upperLines < best.lines) {
+            return false;
+          }
+          if (upperSelectedUsed === best.selectedUsed && upperLines === best.lines && upperFilled < best.filled) {
+            return false;
+          }
+          return true;
+        }
+
         if (upperLines < best.lines) {
           return false;
         }
-        if (upperLines === best.lines && upperFilled < best.filled) {
+        if (useComponentPreference && upperLines === best.lines && upperSelectedUsed < best.selectedUsed) {
+          return false;
+        }
+        if (upperLines === best.lines && ((!useComponentPreference && upperFilled < best.filled) || (useComponentPreference && upperSelectedUsed === best.selectedUsed && upperFilled < best.filled))) {
           return false;
         }
         return true;
       }
 
-      function getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces) {
+      function getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces, selectedUsed = 0, selectedRemaining = 0) {
         const openMask = SUFFIX_MASKS[index] & (FULL_MASK ^ occMask);
         const openCells = popcount56(openMask);
         const maxPiecesFit = Math.min(remainingPieces, Math.floor(openCells / PIECE_SIZE));
         const maxAdd = maxPiecesFit * PIECE_SIZE;
         const upperFilled = filled + maxAdd;
+        const maxSelectedPiecesFit = Math.min(maxPiecesFit, Math.max(0, selectedRemaining));
+        const upperSelectedUsed = selectedUsed + maxSelectedPiecesFit;
 
         let upperLines = linesComplete;
         if (maxAdd > 0) {
@@ -2259,7 +2570,7 @@
           }
         }
 
-        return { upperLines, upperFilled };
+        return { upperLines, upperFilled, upperSelectedUsed };
       }
 
       function countHoles(occMask) {
