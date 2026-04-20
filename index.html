@@ -369,6 +369,12 @@
       gap: 4px;
       width: max-content;
       filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.2));
+      transform-origin: 50% 50%;
+      transition: transform 150ms cubic-bezier(0.2, 0.85, 0.28, 1);
+    }
+
+    .piece-shape.no-rotate-transition {
+      transition: none;
     }
 
     .piece-shape-cell {
@@ -1658,7 +1664,7 @@
             pieceRotationById[piece.id] = sharedRotations[piece.id];
             const shapeWrap = inventoryShapeWrapById[piece.id];
             if (shapeWrap) {
-              renderPieceShape(shapeWrap, piece.cells, piece.color, pieceRotationById[piece.id]);
+              setPieceShapeRotation(shapeWrap, pieceRotationById[piece.id], false);
               shapeWrap.title = `${piece.name} preview. Rotation ${pieceRotationById[piece.id] * 90}°. Click to rotate 90°.`;
               shapeWrap.setAttribute('aria-label', `${piece.name} preview rotated ${pieceRotationById[piece.id] * 90} degrees. Activate to rotate 90 degrees.`);
             }
@@ -2911,7 +2917,7 @@
           shapeWrap.addEventListener('click', () => {
             const nextTurns = (((Number(pieceRotationById[piece.id]) || 0) + 1) % 4 + 4) % 4;
             pieceRotationById[piece.id] = nextTurns;
-            renderPieceShape(shapeWrap, piece.cells, piece.color, nextTurns);
+            setPieceShapeRotation(shapeWrap, nextTurns, true);
             shapeWrap.title = `${piece.name} preview. Rotation ${nextTurns * 90}°. Click to rotate 90°.`;
             shapeWrap.setAttribute('aria-label', `${piece.name} preview rotated ${nextTurns * 90} degrees. Activate to rotate 90 degrees.`);
             schedulePersistState();
@@ -3267,14 +3273,46 @@
       // ------------------------------
       // Utility: UI helpers
       // ------------------------------
+      function setPieceShapeRotation(container, quarterTurns, animate = true) {
+        const shape = container ? container.querySelector('.piece-shape') : null;
+        if (!shape) {
+          return;
+        }
+        const normalizedTurns = ((clampInt(quarterTurns, 0, 3) % 4) + 4) % 4;
+        const rawCurrentSpinTurns = Number(shape.dataset.spinTurns);
+        const hasCurrentSpinTurns = Number.isFinite(rawCurrentSpinTurns);
+        const currentSpinTurns = hasCurrentSpinTurns ? Math.floor(rawCurrentSpinTurns) : 0;
+        const currentNormalizedTurns = ((currentSpinTurns % 4) + 4) % 4;
+        let nextSpinTurns = normalizedTurns;
+
+        if (animate && hasCurrentSpinTurns) {
+          let forwardDelta = normalizedTurns - currentNormalizedTurns;
+          if (forwardDelta < 0) {
+            forwardDelta += 4;
+          }
+          nextSpinTurns = currentSpinTurns + forwardDelta;
+        }
+
+        if (!animate) {
+          shape.classList.add('no-rotate-transition');
+        } else {
+          shape.classList.remove('no-rotate-transition');
+        }
+
+        shape.dataset.spinTurns = String(nextSpinTurns);
+        shape.dataset.rotationTurns = String(normalizedTurns);
+        shape.style.transform = `rotate(${nextSpinTurns * 90}deg)`;
+
+        if (!animate) {
+          requestAnimationFrame(() => {
+            shape.classList.remove('no-rotate-transition');
+          });
+        }
+      }
+
       function renderPieceShape(container, cells, color, quarterTurns = 0) {
         container.textContent = '';
-        const safeTurns = ((clampInt(quarterTurns, 0, 3) % 4) + 4) % 4;
-        let orientedCells = cells.map(([x, y]) => [x, y]);
-        for (let i = 0; i < safeTurns; i++) {
-          orientedCells = orientedCells.map(([x, y]) => [y, -x]);
-        }
-        const normalized = normalizeCells(orientedCells);
+        const normalized = normalizeCells(cells);
         const shape = document.createElement('div');
         shape.className = 'piece-shape';
         shape.style.gridTemplateColumns = `repeat(${normalized.width}, var(--shape-cell-size))`;
@@ -3291,6 +3329,7 @@
         }
 
         container.appendChild(shape);
+        setPieceShapeRotation(container, quarterTurns, false);
       }
 
       function getCompleteRows(boardType) {
