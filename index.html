@@ -777,6 +777,12 @@
             <span>Live calculation (Beta)</span>
           </label>
         </div>
+        <div class="beta-row">
+          <label class="live-toggle" for="fillPriorityToggle">
+            <input id="fillPriorityToggle" type="checkbox" />
+            <span>Prioritize full board fill</span>
+          </label>
+        </div>
         <p class="rules">
           Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.
         </p>
@@ -847,6 +853,8 @@
       const statusTextEl = document.getElementById('statusText');
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
+      const fillPriorityToggleEl = document.getElementById('fillPriorityToggle');
+      const rulesEl = document.querySelector('.rules');
       const calculateBtnEl = document.getElementById('calculateBtn');
       const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
       const resetBtnEl = document.getElementById('resetBtn');
@@ -893,7 +901,9 @@
       let progressTimerId = 0;
       let layoutVariantNonce = 0;
       liveToggleEl.checked = false;
+      fillPriorityToggleEl.checked = true;
       setStatsCollapsed(true);
+      updateRulesText();
 
       window.addEventListener('resize', () => {
         if (!lastRenderedResult || resizeRaf) return;
@@ -933,6 +943,13 @@
           setStatus(false, 'Live mode enabled');
         }
         updateCalcControls();
+      });
+
+      fillPriorityToggleEl.addEventListener('change', () => {
+        resultCache.clear();
+        layoutHistoryByCounts.clear();
+        updateRulesText();
+        scheduleSolve(false);
       });
 
       calculateBtnEl.addEventListener('click', () => {
@@ -1035,7 +1052,8 @@
         const variantAttempt = options && Number.isFinite(options.variantAttempt) ? Math.max(0, Math.floor(options.variantAttempt)) : 0;
         const inputCounts = fixed ? fixed.inputCounts.slice() : getCountsFromInputs();
         const solverCounts = fixed ? fixed.solverCounts.slice() : getSolverCounts(inputCounts);
-        const baseCountsKey = fixed ? fixed.baseCountsKey : solverCounts.join(',');
+        const objective = fixed && fixed.objective ? { ...fixed.objective } : getSolveObjective();
+        const baseCountsKey = fixed ? fixed.baseCountsKey : `${solverCounts.join(',')}|o:${objectiveKey(objective)}`;
         const variantSeed = isVariantTrigger ? ++layoutVariantNonce : 0;
         const cacheKey = `${baseCountsKey}|v:${variantSeed}`;
         const context = {
@@ -1044,7 +1062,8 @@
           fixed: {
             inputCounts: inputCounts.slice(),
             solverCounts: solverCounts.slice(),
-            baseCountsKey
+            baseCountsKey,
+            objective: { ...objective }
           }
         };
         solveContextByToken.set(token, context);
@@ -1080,14 +1099,14 @@
 
         if (!workerSupported) {
           setStatus(true, 'Web Worker unavailable. Calculating on main thread...');
-          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, started, false, variantSeed);
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, started, false, variantSeed, objective);
           return;
         }
 
-        runSolveInWorker(token, inputCounts, solverCounts, cacheKey, started, 0, variantSeed);
+        runSolveInWorker(token, inputCounts, solverCounts, cacheKey, started, 0, variantSeed, objective);
       }
 
-      function runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount, variantSeed = 0) {
+      function runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount, variantSeed = 0, objective = null) {
         if (token !== solveToken) {
           return;
         }
@@ -1110,12 +1129,12 @@
               destroySolverWorker();
               if (retryCount < WORKER_RETRY_LIMIT) {
                 setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-                runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
+                runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed, objective);
                 return;
               }
               const reason = payload.message ? String(payload.message) : 'worker error';
               setStatus(true, 'Worker failed. Using compatibility solver...', reason);
-              solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
+              solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed, objective);
               return;
             }
             if (payload.type === 'result') {
@@ -1135,18 +1154,19 @@
             ].filter(Boolean).join(', ') || 'worker crashed';
             if (retryCount < WORKER_RETRY_LIMIT) {
               setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-              runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
+              runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed, objective);
               return;
             }
             setStatus(true, 'Worker failed. Using compatibility solver...', crashMeta);
-            solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
+            solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed, objective);
           };
 
           solverWorker.postMessage({
             type: 'solve',
             requestId: workerRequestId,
             counts: solverCounts,
-            variantSeed
+            variantSeed,
+            objective
           });
         } catch (error) {
           if (token !== solveToken) {
@@ -1155,15 +1175,15 @@
           destroySolverWorker();
           if (retryCount < WORKER_RETRY_LIMIT) {
             setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
-            runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed);
+            runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1, variantSeed, objective);
             return;
           }
           setStatus(true, 'Worker failed. Using compatibility solver...', 'worker unavailable');
-          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed);
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true, variantSeed, objective);
         }
       }
 
-      function solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, compatibilityMode = false, variantSeed = 0) {
+      function solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, compatibilityMode = false, variantSeed = 0, objective = null) {
         requestAnimationFrame(() => {
           if (token !== solveToken) {
             return;
@@ -1176,7 +1196,8 @@
               compatibilityMode
                 ? { maxStates: 900000, maxMs: 1200, progressEvery: 30000 }
                 : { maxStates: 3000000, maxMs: 7000, progressEvery: 45000 },
-              variantSeed
+              variantSeed,
+              objective
             );
             finalizeSolve(token, inputCounts, cacheKey, startedAt, result);
           } catch (error) {
@@ -1254,6 +1275,25 @@
         solveContextByToken.delete(solveToken);
         startSolve('variant', { fixed: context.fixed, variantAttempt: nextAttempt });
         return true;
+      }
+
+      function getSolveObjective() {
+        return {
+          prioritizeFullBoard: !!fillPriorityToggleEl.checked
+        };
+      }
+
+      function objectiveKey(objective) {
+        return objective && objective.prioritizeFullBoard ? 'full' : 'rows';
+      }
+
+      function updateRulesText() {
+        if (!rulesEl) return;
+        if (fillPriorityToggleEl && fillPriorityToggleEl.checked) {
+          rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
+          return;
+        }
+        rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
       }
 
       function setStatus(searching, text, meta = '') {
@@ -1406,6 +1446,9 @@
             const rawCounts = Array.isArray(data.counts) ? data.counts : [];
             const counts = new Array(PIECES.length).fill(0);
             const variantSeed = Number.isFinite(Number(data.variantSeed)) ? Number(data.variantSeed) : 0;
+            const objective = {
+              prioritizeFullBoard: !!(data.objective && data.objective.prioritizeFullBoard)
+            };
             for (let i = 0; i < PIECES.length; i++) {
               const value = Number(rawCounts[i] || 0);
               const safe = Number.isFinite(value) ? Math.floor(value) : 0;
@@ -1418,7 +1461,7 @@
                 statesSearched,
                 placementsSearched
               });
-            }, null, variantSeed);
+            }, null, variantSeed, objective);
             self.postMessage({
               type: 'result',
               requestId: data.requestId,
@@ -1446,12 +1489,15 @@
       // ------------------------------
       // Solver
       // ------------------------------
-      function solveOptimalLayout(initialCounts, progressCallback = null, limits = null, variantSeed = 0) {
-        const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : 3000000;
-        const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : 7000;
+      function solveOptimalLayout(initialCounts, progressCallback = null, limits = null, variantSeed = 0, objective = null) {
+        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
+        const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : (prioritizeFullBoard ? 8000000 : 3000000);
+        const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : (prioritizeFullBoard ? 12000 : 7000);
+        const FULL_ONLY_MAX_STATES = limits && Number.isFinite(limits.fullMaxStates) ? Math.max(10000, Math.floor(limits.fullMaxStates)) : (COLS >= 9 ? 14000000 : 7000000);
+        const FULL_ONLY_MAX_MS = limits && Number.isFinite(limits.fullMaxMs) ? Math.max(100, Math.floor(limits.fullMaxMs)) : (COLS >= 9 ? 10000 : 5000);
         const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : 45000;
         const CHECK_INTERVAL_MASK = 4095;
-        const startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        let startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
         const counts = initialCounts.slice();
         const used = new Uint8Array(PIECES.length);
@@ -1468,6 +1514,7 @@
         let placementsSearched = 0;
         let foundPerfect = false;
         let timedOut = false;
+        let fullSearchTimedOut = false;
         let lastProgressReport = 0;
 
         const best = {
@@ -1481,6 +1528,169 @@
           boardInstance: new Int32Array(CELLS).fill(-1),
           used: new Array(PIECES.length).fill(0)
         };
+
+        function tryFindFullBoard(maxStates, maxMs) {
+          const fullCounts = initialCounts.slice();
+          const fullUsed = new Uint8Array(PIECES.length);
+          const fullBoardType = new Int8Array(CELLS);
+          const fullBoardInstance = new Int32Array(CELLS);
+          fullBoardType.fill(-1);
+          fullBoardInstance.fill(-1);
+
+          let fullRemainingPieces = fullCounts.reduce((sum, v) => sum + v, 0);
+          let fullStatesSearched = 0;
+          let fullPlacementsSearched = 0;
+          let fullTimedOut = false;
+          const fullStartedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const deadStates = new Set();
+
+          function dfsFull(index, occMask, filled, bottomCompact) {
+            if (fullTimedOut) {
+              return false;
+            }
+
+            while (index < CELLS && (occMask & BIT_MASKS[index])) {
+              index++;
+            }
+
+            fullStatesSearched++;
+            if ((fullStatesSearched & CHECK_INTERVAL_MASK) === 0) {
+              const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+              if (fullStatesSearched >= maxStates || (now - fullStartedAt) >= maxMs) {
+                fullTimedOut = true;
+                return false;
+              }
+            }
+
+            if (progressCallback && fullStatesSearched % PROGRESS_EVERY === 0) {
+              progressCallback(statesSearched + fullStatesSearched, placementsSearched + fullPlacementsSearched);
+            }
+
+            if (filled === CELLS) {
+              return {
+                board: Int8Array.from(fullBoardType),
+                boardInstance: Int32Array.from(fullBoardInstance),
+                used: Array.from(fullUsed),
+                bottomCompact
+              };
+            }
+
+            if (fullRemainingPieces * PIECE_SIZE + filled < CELLS) {
+              return false;
+            }
+
+            const stateKey = `${index}|${fullCounts.join(',')}|${occMask.toString(36)}`;
+            if (deadStates.has(stateKey)) {
+              return false;
+            }
+
+            const moves = [];
+            for (let t = 0; t < PIECES.length; t++) {
+              if (fullCounts[t] <= 0) {
+                continue;
+              }
+              const anchorPlacements = placementsByAnchor[index][t];
+              for (let i = 0; i < anchorPlacements.length; i++) {
+                const p = anchorPlacements[i];
+                if ((p.mask & occMask) !== 0n) {
+                  continue;
+                }
+                fullPlacementsSearched++;
+                moves.push({
+                  pieceType: t,
+                  placement: p,
+                  scarcity: fullCounts[t]
+                });
+              }
+            }
+
+            if (moves.length === 0) {
+              deadStates.add(stateKey);
+              return false;
+            }
+
+            if (moves.length > 1) {
+              moves.sort((a, b) => {
+                if (b.placement.bottomSum !== a.placement.bottomSum) return b.placement.bottomSum - a.placement.bottomSum;
+                if (a.scarcity !== b.scarcity) return a.scarcity - b.scarcity;
+                if (a.pieceType !== b.pieceType) return a.pieceType - b.pieceType;
+                const aSalt = (((a.placement.id + 1) * 1103515245 + (variantSeed | 0)) >>> 0);
+                const bSalt = (((b.placement.id + 1) * 1103515245 + (variantSeed | 0)) >>> 0);
+                if (aSalt !== bSalt) return aSalt - bSalt;
+                return a.placement.id - b.placement.id;
+              });
+            }
+
+            for (let m = 0; m < moves.length; m++) {
+              const { pieceType, placement } = moves[m];
+              fullCounts[pieceType]--;
+              fullUsed[pieceType]++;
+              fullRemainingPieces--;
+
+              for (let c = 0; c < placement.cells.length; c++) {
+                fullBoardType[placement.cells[c]] = pieceType;
+                fullBoardInstance[placement.cells[c]] = placement.id;
+              }
+
+              const found = dfsFull(
+                index + 1,
+                occMask | placement.mask,
+                filled + PIECE_SIZE,
+                bottomCompact + placement.bottomSum
+              );
+              if (found) {
+                return found;
+              }
+
+              for (let c = 0; c < placement.cells.length; c++) {
+                fullBoardType[placement.cells[c]] = -1;
+                fullBoardInstance[placement.cells[c]] = -1;
+              }
+
+              fullCounts[pieceType]++;
+              fullUsed[pieceType]--;
+              fullRemainingPieces++;
+            }
+
+            deadStates.add(stateKey);
+            return false;
+          }
+
+          const found = dfsFull(0, 0n, 0, 0);
+          return {
+            found,
+            timedOut: fullTimedOut,
+            statesSearched: fullStatesSearched,
+            placementsSearched: fullPlacementsSearched
+          };
+        }
+
+        if (prioritizeFullBoard) {
+          const fullAttempt = tryFindFullBoard(FULL_ONLY_MAX_STATES, FULL_ONLY_MAX_MS);
+          statesSearched += fullAttempt.statesSearched;
+          placementsSearched += fullAttempt.placementsSearched;
+          fullSearchTimedOut = fullAttempt.timedOut;
+
+          if (fullAttempt.found) {
+            return {
+              lines: ROWS,
+              filled: CELLS,
+              empty: 0,
+              holes: 0,
+              bottomCompact: fullAttempt.found.bottomCompact,
+              timedOut: fullAttempt.timedOut,
+              board: fullAttempt.found.board,
+              boardInstance: fullAttempt.found.boardInstance,
+              used: fullAttempt.found.used,
+              placementsSearched,
+              statesSearched,
+              solveMs: 0
+            };
+          }
+
+          // Restart the timer budget for the fallback partial-fill optimization pass.
+          startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        }
 
         function dfs(index, occMask, rowDeadMask, filled, linesComplete, bottomCompact) {
           if (foundPerfect || timedOut) {
@@ -1506,7 +1716,7 @@
           }
 
           const bounds = getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces);
-          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, best)) {
+          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, best, prioritizeFullBoard)) {
             return;
           }
 
@@ -1633,7 +1843,18 @@
         }
 
         function evaluateCandidate(occMask, lines, filled, bottomCompact) {
-          if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
+          const bestIsFull = best.filled === CELLS;
+          const candidateIsFull = filled === CELLS;
+          if (prioritizeFullBoard) {
+            if (bestIsFull && !candidateIsFull) {
+              return;
+            }
+            if (!bestIsFull && candidateIsFull) {
+              // Candidate beats any non-full solution; keep evaluating it.
+            } else if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
+              return;
+            }
+          } else if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
             return;
           }
 
@@ -1656,7 +1877,11 @@
             }
           }
 
-          if (lines > best.lines || filled > best.filled) {
+          const outranksBest = prioritizeFullBoard
+            ? ((candidateIsFull && !bestIsFull) || (lines > best.lines || filled > best.filled))
+            : (lines > best.lines || filled > best.filled);
+
+          if (outranksBest) {
             signature = boardSignature(boardType, boardInstance);
           }
 
@@ -1690,7 +1915,7 @@
           empty: CELLS - best.filled,
           holes: best.holes,
           bottomCompact: best.bottomCompact,
-          timedOut,
+          timedOut: timedOut || fullSearchTimedOut,
           board: best.board,
           boardInstance: best.boardInstance,
           used: best.used,
@@ -1969,7 +2194,17 @@
       // ------------------------------
       // Utility: scoring and pruning
       // ------------------------------
-      function canStillBeatBest(upperLines, upperFilled, best) {
+      function canStillBeatBest(upperLines, upperFilled, best, prioritizeFullBoard = false) {
+        if (prioritizeFullBoard) {
+          const bestIsFull = best.filled === CELLS;
+          const canStillBeFull = upperFilled >= CELLS;
+          if (bestIsFull && !canStillBeFull) {
+            return false;
+          }
+          if (!bestIsFull && canStillBeFull) {
+            return true;
+          }
+        }
         if (upperLines < best.lines) {
           return false;
         }
