@@ -4356,7 +4356,7 @@
         return `rgba(${dr}, ${dg}, ${db}, ${alpha})`;
       }
 
-      // 56-bit popcount via two 28-bit chunks.
+      // Popcount for arbitrary-width BigInt bitmasks.
       function popcount32(v) {
         v = v - ((v >>> 1) & 0x55555555);
         v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
@@ -4365,9 +4365,13 @@
 
       function popcount56(n) {
         const mask28 = (1n << 28n) - 1n;
-        const low = Number(n & mask28);
-        const high = Number((n >> 28n) & mask28);
-        return popcount32(low) + popcount32(high);
+        let value = n;
+        let count = 0;
+        while (value !== 0n) {
+          count += popcount32(Number(value & mask28));
+          value >>= 28n;
+        }
+        return count;
       }
     })();
   </script>
