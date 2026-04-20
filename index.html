@@ -105,6 +105,7 @@
       cursor: pointer;
       letter-spacing: 0.01em;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+      touch-action: manipulation;
     }
 
     .board-width-btn:hover {
@@ -436,6 +437,9 @@
       line-height: 1;
       font-weight: 900;
       height: 34px;
+      width: 100%;
+      min-width: 0;
+      padding: 0;
       color: #101217;
       background: linear-gradient(#ffffff, #d9dbde);
       cursor: pointer;
@@ -488,6 +492,7 @@
       cursor: pointer;
       background: linear-gradient(#50545b, #24272c);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+      touch-action: manipulation;
     }
 
     .reset-btn:hover {
@@ -505,6 +510,7 @@
       background: linear-gradient(#3b67be, #1d3567);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
       min-width: 120px;
+      touch-action: manipulation;
     }
 
     .calculate-btn:hover:not(:disabled) {
@@ -517,6 +523,87 @@
       filter: grayscale(0.25);
     }
 
+    .stop-btn {
+      border: 2px solid #3a1016;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 8px 14px;
+      color: #f7ecec;
+      cursor: pointer;
+      background: linear-gradient(#b94653, #6f1f2a);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      min-width: 94px;
+      touch-action: manipulation;
+    }
+
+    .stop-btn:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+
+    .stop-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.25);
+    }
+
+    .layout-options {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 8px;
+    }
+
+    .layout-option-btn {
+      border: 2px solid #1e2a4a;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.84rem;
+      padding: 7px 8px;
+      color: #dfe7fb;
+      cursor: pointer;
+      background: linear-gradient(#34466f, #1c2747);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
+      text-align: center;
+      touch-action: manipulation;
+      white-space: nowrap;
+    }
+
+    .layout-option-letter {
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+      margin-right: 4px;
+    }
+
+    .layout-option-sep {
+      opacity: 0.9;
+      margin-right: 4px;
+    }
+
+    .layout-option-detail {
+      font-size: 0.9em;
+      font-weight: 800;
+      opacity: 0.96;
+    }
+
+    .layout-option-btn:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+
+    .layout-option-btn.active {
+      border-color: #0f1b36;
+      color: #ffffff;
+      background: linear-gradient(#4f78d0, #294f9d);
+    }
+
+    .layout-option-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.3);
+    }
+
     .status-wrap {
       display: flex;
       align-items: center;
@@ -525,6 +612,7 @@
       color: #1d2025;
       min-height: 22px;
       flex-wrap: wrap;
+      font-size: 0.78rem;
     }
 
     .spinner {
@@ -542,7 +630,7 @@
     }
 
     .status-meta {
-      font-size: 0.82rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: #2f3553;
       opacity: 0.95;
@@ -602,6 +690,7 @@
       gap: 7px;
       cursor: pointer;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+      touch-action: manipulation;
     }
 
     .stats-toggle-btn:hover {
@@ -697,6 +786,15 @@
       block-size: 17px;
       accent-color: #3057a8;
       cursor: pointer;
+    }
+
+    .advanced-help-text {
+      margin: 0;
+      font-size: 0.77rem;
+      line-height: 1.3;
+      color: #5b6279;
+      font-weight: 700;
+      font-style: italic;
     }
 
     .priority-components {
@@ -857,30 +955,56 @@
     .usage-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(115px, 1fr));
-      gap: 8px;
+      gap: 6px;
     }
 
     .usage-card {
       background: rgba(255, 255, 255, 0.58);
       border: 1px solid rgba(0, 0, 0, 0.18);
       border-radius: 10px;
-      padding: 7px 8px;
+      padding: 6px 8px;
       display: grid;
-      gap: 4px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
       font-size: 0.83rem;
       font-weight: 700;
     }
 
     .usage-top {
-      display: flex;
+      grid-column: 2;
+      grid-row: 1;
+      display: grid;
+      place-items: center;
+      width: 46px;
+      min-height: 40px;
+    }
+
+    .usage-piece-icon {
+      display: grid;
       align-items: center;
-      justify-content: space-between;
-      gap: 7px;
+      justify-items: center;
+      width: 44px;
+      min-width: 44px;
+      min-height: 40px;
+    }
+
+    .usage-piece-icon .piece-shape {
+      --shape-cell-size: 8px;
+      gap: 1px;
+      filter: none;
+    }
+
+    .usage-piece-icon .piece-shape-cell {
+      border-width: 1px;
+      border-radius: 2px;
     }
 
     .usage-lines {
+      grid-column: 1;
+      grid-row: 1;
       color: #23262b;
-      line-height: 1.25;
+      line-height: 1.2;
       font-variant-numeric: tabular-nums;
     }
 
@@ -892,38 +1016,267 @@
     }
 
     @media (max-width: 860px) {
+      body {
+        padding: 14px 10px 20px;
+      }
+
+      .app {
+        gap: 10px;
+      }
+
+      .panel {
+        padding: 10px;
+      }
+
+      .board-panel {
+        width: 100%;
+      }
+
+      .board-shell {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px;
+      }
+
+      .board-grid {
+        width: max-content;
+        margin: 0 auto;
+      }
+
       .inventory-grid {
-        grid-template-columns: repeat(3, minmax(130px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .piece-card {
+        min-height: 0;
+        grid-template-columns: 84px minmax(0, 1fr);
+        column-gap: 7px;
+        align-items: center;
+        align-content: center;
+        padding: 7px 8px;
+        gap: 5px;
+      }
+
+      .piece-shape-wrap {
+        width: 74px;
+        min-height: 66px;
+        padding: 3px;
+        border-radius: 7px;
+        justify-self: start;
+        background: rgba(255, 255, 255, 0.22);
+      }
+
+      .piece-input {
+        width: 100%;
+        min-width: 0;
+        justify-items: center;
+        align-content: center;
+        gap: 5px;
+      }
+
+      .piece-input label {
+        font-size: 0.7rem;
+        width: auto;
+        text-align: center;
+      }
+
+      .piece-input input {
+        width: 100%;
+        min-width: 0;
+        max-width: 62px;
+        min-height: 36px;
+        font-size: 1.03rem;
+        padding: 2px 4px;
+      }
+
+      .piece-stepper {
+        width: min(100%, 132px);
+        max-width: 132px;
+        grid-template-columns: 30px minmax(0, 1fr) 30px;
+        gap: 5px;
+        justify-self: center;
+      }
+
+      .step-btn {
+        height: 36px;
+        font-size: 1.1rem;
+      }
+
+      .piece-card .piece-shape {
+        --shape-cell-size: 11px;
+        gap: 2px;
+      }
+
+      .piece-card .piece-shape-cell {
+        border-radius: 2px;
+        border-width: 1px;
       }
 
       .usage-grid {
-        grid-template-columns: repeat(3, minmax(120px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       :root {
-        --cell-size: min(10.1vw, 52px);
+        --cell-size: min(9.2vw, 44px);
       }
     }
 
     @media (max-width: 620px) {
+      body {
+        padding: 10px 8px 16px;
+      }
+
+      .title-row {
+        gap: 8px;
+      }
+
+      .title-panel {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: clamp(1.1rem, 5.2vw, 1.45rem);
+      }
+
+      .board-width-options {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .board-width-btn {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 42px;
+      }
+
+      .controls-row {
+        align-items: stretch;
+      }
+
+      .calc-controls {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .calculate-btn,
+      .stop-btn,
+      .reset-btn {
+        width: 100%;
+        min-height: 44px;
+      }
+
+      .layout-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .status-wrap {
+        width: 100%;
+        min-height: 24px;
+      }
+
       .inventory-grid {
-        grid-template-columns: repeat(2, minmax(125px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .usage-grid {
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        grid-template-columns: 1fr;
       }
 
       .stats-grid {
         grid-template-columns: 1fr;
       }
 
+      .piece-card {
+        min-height: 0;
+        padding: 5px;
+        gap: 5px;
+      }
+
+      .piece-shape-wrap {
+        min-height: 74px;
+      }
+
       :root {
-        --cell-size: min(11.8vw, 45px);
+        --cell-size: min(10.6vw, 38px);
       }
 
       .piece-shape {
-        --shape-cell-size: 20px;
+        --shape-cell-size: 16px;
+      }
+    }
+
+    @media (max-width: 460px) {
+      .inventory-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .piece-card {
+        grid-template-columns: 88px minmax(0, 1fr);
+        column-gap: 6px;
+        align-items: center;
+        padding: 5px 7px;
+      }
+
+      .piece-shape-wrap {
+        width: 72px;
+        min-height: 64px;
+        padding: 3px;
+        border-radius: 7px;
+        justify-self: start;
+        background: rgba(255, 255, 255, 0.26);
+      }
+
+      .piece-input {
+        width: 100%;
+        min-width: 0;
+        justify-items: center;
+        align-content: center;
+        gap: 5px;
+      }
+
+      .piece-input label {
+        font-size: 0.62rem;
+        width: auto;
+        text-align: center;
+      }
+
+      .piece-input input {
+        width: 100%;
+        min-width: 0;
+        max-width: 60px;
+        min-height: 34px;
+        font-size: 1.04rem;
+        padding: 2px 4px;
+      }
+
+      .piece-stepper {
+        width: min(100%, 132px);
+        max-width: 132px;
+        grid-template-columns: 34px minmax(52px, 1fr) 34px;
+        gap: 6px;
+        justify-self: center;
+      }
+
+      .step-btn {
+        height: 34px;
+        font-size: 1.02rem;
+      }
+
+      :root {
+        --cell-size: min(12vw, 34px);
+      }
+
+      .piece-card .piece-shape {
+        --shape-cell-size: 12px;
+        gap: 2px;
+      }
+
+      .piece-card .piece-shape-cell {
+        border-radius: 2px;
+        border-width: 1px;
       }
     }
   </style>
@@ -946,19 +1299,21 @@
     </section>
 
     <section class="panel controls-panel">
+      <div id="layoutOptions" class="layout-options" aria-label="Top layout options" hidden></div>
       <h2 class="subhead">Components</h2>
       <div id="inventoryGrid" class="inventory-grid"></div>
 
       <div class="controls-row">
-        <div class="calc-controls">
-          <button id="calculateBtn" class="calculate-btn" type="button">Calculate</button>
-          <button id="anotherLayoutBtn" class="reset-btn" type="button">Another Layout</button>
-          <button id="resetBtn" class="reset-btn" type="button">Reset Defaults</button>
-        </div>
         <div class="status-wrap" aria-live="polite">
           <span id="spinner" class="spinner" aria-hidden="true"></span>
           <span id="statusText">Ready</span>
           <span id="statusMeta" class="status-meta"></span>
+        </div>
+        <div class="calc-controls">
+          <button id="calculateBtn" class="calculate-btn" type="button">Calculate</button>
+          <button id="stopBtn" class="stop-btn" type="button" disabled>Stop</button>
+          <button id="anotherLayoutBtn" class="reset-btn" type="button">Another Layout</button>
+          <button id="resetBtn" class="reset-btn" type="button">Reset Defaults</button>
         </div>
       </div>
     </section>
@@ -979,6 +1334,7 @@
             <span>Live calculation (Beta)</span>
           </label>
         </div>
+        <p id="liveCalcHelpText" class="advanced-help-text" hidden>Auto-calculates as you change inputs.</p>
         <div class="beta-row">
           <label class="live-toggle" for="fillPriorityToggle">
             <input id="fillPriorityToggle" type="checkbox" checked />
@@ -1021,7 +1377,7 @@
           <h4 class="advanced-mode-heading">Calculation depth</h4>
           <div class="advanced-mode-options" role="radiogroup" aria-label="Calculation depth">
             <label class="advanced-mode-option" for="depthShort">
-              <input id="depthShort" type="radio" name="calcDepth" value="short" checked />
+              <input id="depthShort" type="radio" name="calcDepth" value="short" />
               <span>Short (1x)</span>
             </label>
             <label class="advanced-mode-option" for="depthMedium">
@@ -1029,10 +1385,17 @@
               <span>Medium (1.5x)</span>
             </label>
             <label class="advanced-mode-option" for="depthLong">
-              <input id="depthLong" type="radio" name="calcDepth" value="long" />
+              <input id="depthLong" type="radio" name="calcDepth" value="long" checked />
               <span>Long (3x)</span>
             </label>
           </div>
+          <div class="beta-row">
+            <label class="live-toggle" for="extendedSearchToggle">
+              <input id="extendedSearchToggle" type="checkbox" checked />
+              <span>Extended search (Top 4 + best so far)</span>
+            </label>
+          </div>
+          <p class="advanced-help-text">Higher depth takes longer, but can find better and more varied layouts.</p>
         </div>
         <p class="rules">
           Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.
@@ -1083,6 +1446,7 @@
       const INPUT_DEBOUNCE_MS = 420;
       const WORKER_RETRY_LIMIT = 1;
       const VARIANT_MAX_ATTEMPTS = 64;
+      const MOBILE_LAYOUT_BREAKPOINT = 860;
       const DEFAULT_COUNTS = { A: 3, B: 2, C: 4, D: 2, E: 3 };
       const ADVANCED_MODE = Object.freeze({
         BALANCED: 'balanced',
@@ -1102,6 +1466,7 @@
       const LOCAL_STATE_KEY = 'survivorio-spacecalc-state:v1';
       const LOCAL_STATE_VERSION = 2;
       const LOCAL_STATE_SAVE_DEBOUNCE_MS = 140;
+      const MAX_RANKED_LAYOUTS = 4;
 
       const PIECES = [
         { id: 'A', name: 'Piece A', color: getCssVar('--a'), cells: [[0,0],[0,1],[0,2],[1,1]] },
@@ -1125,6 +1490,7 @@
       // Rendering setup
       // ------------------------------
       const boardEl = document.getElementById('board');
+      const boardShellEl = document.querySelector('.board-shell');
       const boardWidthBtns = Array.from(document.querySelectorAll('.board-width-btn'));
       const inventoryGridEl = document.getElementById('inventoryGrid');
       const usageGridEl = document.getElementById('usageGrid');
@@ -1138,7 +1504,9 @@
       const statusTextEl = document.getElementById('statusText');
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
+      const liveCalcHelpTextEl = document.getElementById('liveCalcHelpText');
       const fillPriorityToggleEl = document.getElementById('fillPriorityToggle');
+      const extendedSearchToggleEl = document.getElementById('extendedSearchToggle');
       const advancedModeInputEls = Array.from(document.querySelectorAll('input[name="advancedMode"]'));
       const calcDepthInputEls = Array.from(document.querySelectorAll('input[name="calcDepth"]'));
       const priorityComponentsEl = document.getElementById('priorityComponents');
@@ -1146,8 +1514,10 @@
       const advancedModeWarningEl = document.getElementById('advancedModeWarning');
       const rulesEl = document.querySelector('.rules');
       const calculateBtnEl = document.getElementById('calculateBtn');
+      const stopBtnEl = document.getElementById('stopBtn');
       const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
       const resetBtnEl = document.getElementById('resetBtn');
+      const layoutOptionsEl = document.getElementById('layoutOptions');
 
       const statEls = {
         lines: document.getElementById('statLines'),
@@ -1196,6 +1566,9 @@
       let layoutVariantNonce = 0;
       let persistStateTimer = 0;
       let isApplyingPersistedState = false;
+      let lastProgressSnapshotSignature = '';
+      let latestRankedLayouts = [];
+      let activeRankedLayoutIndex = 0;
       let persistedAppState = loadPersistedAppState();
       applyPersistedAppState(persistedAppState);
       syncAdvancedModeUi();
@@ -1203,6 +1576,10 @@
       persistStateNow();
 
       window.addEventListener('resize', () => {
+        updateResponsiveBoardCellSize();
+        if (latestRankedLayouts.length) {
+          renderLayoutOptions();
+        }
         if (!lastRenderedResult || resizeRaf) return;
         resizeRaf = requestAnimationFrame(() => {
           resizeRaf = 0;
@@ -1242,6 +1619,7 @@
 
       liveToggleEl.addEventListener('change', () => {
         liveCalculationEnabled = liveToggleEl.checked;
+        updateLiveCalculationHelpVisibility();
         if (!liveCalculationEnabled) {
           cancelCurrentSolve('Manual mode: press Calculate');
           hasPendingChanges = true;
@@ -1283,10 +1661,26 @@
           scheduleSolve(false);
         });
       }
+      if (extendedSearchToggleEl) {
+        extendedSearchToggleEl.addEventListener('change', () => {
+          resultCache.clear();
+          layoutHistoryByCounts.clear();
+          schedulePersistState();
+          scheduleSolve(false);
+        });
+      }
 
       calculateBtnEl.addEventListener('click', () => {
         startSolve('manual');
       });
+      if (stopBtnEl) {
+        stopBtnEl.addEventListener('click', () => {
+          if (!isCalculating) {
+            return;
+          }
+          cancelCurrentSolve('Stopped. Showing best so far.');
+        });
+      }
       anotherLayoutBtnEl.addEventListener('click', () => {
         startSolve('variant');
       });
@@ -1302,6 +1696,7 @@
       function initializeBoardSizeUi() {
         boardEl.style.setProperty('--board-cols', String(COLS));
         boardEl.setAttribute('aria-label', `${COLS} by ${ROWS} board`);
+        updateResponsiveBoardCellSize();
         for (const btn of boardWidthBtns) {
           const cols = Number(btn.dataset.cols || '7');
           const active = cols === COLS;
@@ -1317,6 +1712,44 @@
             window.location.href = next.toString();
           });
         }
+      }
+
+      function updateResponsiveBoardCellSize() {
+        if (!boardEl) {
+          return;
+        }
+        const viewportWidth = Math.max(0, window.innerWidth || document.documentElement.clientWidth || 0);
+        const viewportHeight = Math.max(0, window.innerHeight || document.documentElement.clientHeight || 0);
+        if (!viewportWidth || !viewportHeight || viewportWidth > MOBILE_LAYOUT_BREAKPOINT) {
+          boardEl.style.removeProperty('--cell-size');
+          return;
+        }
+
+        const gap = 3;
+        const gridChrome = 10; // .board-grid horizontal padding (6) + border (4)
+        let shellInnerWidth = 0;
+        if (boardShellEl && boardShellEl.clientWidth > 0) {
+          const shellStyles = getComputedStyle(boardShellEl);
+          const shellPadLeft = Number.parseFloat(shellStyles.paddingLeft) || 0;
+          const shellPadRight = Number.parseFloat(shellStyles.paddingRight) || 0;
+          shellInnerWidth = Math.max(0, boardShellEl.clientWidth - shellPadLeft - shellPadRight);
+        }
+        const widthMargin = viewportWidth <= 620 ? 24 : 32;
+        const widthBudget = shellInnerWidth > 0
+          ? shellInnerWidth
+          : Math.max(160, viewportWidth - widthMargin);
+        const widthLimitedCell = Math.floor((widthBudget - ((COLS - 1) * gap) - gridChrome) / COLS);
+
+        const targetHeightRatio = COLS >= 12 ? 0.28 : (COLS >= 9 ? 0.32 : 0.36);
+        const heightBudget = Math.max(160, Math.floor(viewportHeight * targetHeightRatio));
+        const heightLimitedCell = Math.floor((heightBudget - ((ROWS - 1) * gap) - gridChrome) / ROWS);
+
+        const nextCellSize = Math.max(10, Math.min(56, widthLimitedCell, heightLimitedCell));
+        if (!Number.isFinite(nextCellSize) || nextCellSize <= 0) {
+          boardEl.style.removeProperty('--cell-size');
+          return;
+        }
+        boardEl.style.setProperty('--cell-size', `${nextCellSize}px`);
       }
 
       function createPriorityComponentControls() {
@@ -1365,7 +1798,7 @@
 
       function getActiveCalcDepth() {
         const active = calcDepthInputEls.find((input) => input.checked);
-        return active ? active.value : CALC_DEPTH.SHORT;
+        return active ? active.value : CALC_DEPTH.LONG;
       }
 
       function getCalcDepthScale(depth) {
@@ -1475,14 +1908,22 @@
         advancedModeWarningEl.innerHTML = `<strong>Warning:</strong> Strict priority for selected components (${selectedIds.join(', ')}) may reduce row completion and increase compute time before fallback scoring applies.${prioritizeFullBoard ? ' Full-board remains the second priority when possible.' : ''}`;
       }
 
+      function updateLiveCalculationHelpVisibility() {
+        if (!liveCalcHelpTextEl || !liveToggleEl) {
+          return;
+        }
+        liveCalcHelpTextEl.hidden = !liveToggleEl.checked;
+      }
+
       function getDefaultPersistedState() {
         return {
           version: LOCAL_STATE_VERSION,
           global: {
             liveCalculationEnabled: false,
             prioritizeFullBoard: true,
+            extendedSearch: true,
             advancedMode: ADVANCED_MODE.BALANCED,
-            calcDepth: CALC_DEPTH.SHORT,
+            calcDepth: CALC_DEPTH.LONG,
             priorityMask: 0,
             componentCounts: getDefaultCountsById(),
             componentRotations: getDefaultRotationsById(),
@@ -1588,6 +2029,7 @@
           global: {
             liveCalculationEnabled: !!safeGlobal.liveCalculationEnabled,
             prioritizeFullBoard: safeGlobal.prioritizeFullBoard !== false,
+            extendedSearch: !!safeGlobal.extendedSearch,
             advancedMode,
             calcDepth,
             priorityMask,
@@ -1640,13 +2082,17 @@
         isApplyingPersistedState = true;
         try {
           setRadioByValue(advancedModeInputEls, normalized.global.advancedMode, ADVANCED_MODE.BALANCED);
-          setRadioByValue(calcDepthInputEls, normalized.global.calcDepth, CALC_DEPTH.SHORT);
+          setRadioByValue(calcDepthInputEls, normalized.global.calcDepth, CALC_DEPTH.LONG);
 
           if (fillPriorityToggleEl) {
             fillPriorityToggleEl.checked = !!normalized.global.prioritizeFullBoard;
           }
+          if (extendedSearchToggleEl) {
+            extendedSearchToggleEl.checked = !!normalized.global.extendedSearch;
+          }
           liveToggleEl.checked = !!normalized.global.liveCalculationEnabled;
           liveCalculationEnabled = liveToggleEl.checked;
+          updateLiveCalculationHelpVisibility();
 
           for (let i = 0; i < PIECES.length; i++) {
             const input = priorityPieceCheckboxesById[PIECES[i].id];
@@ -1700,6 +2146,7 @@
         return {
           liveCalculationEnabled: !!liveToggleEl.checked,
           prioritizeFullBoard: !!(fillPriorityToggleEl && fillPriorityToggleEl.checked),
+          extendedSearch: !!(extendedSearchToggleEl && extendedSearchToggleEl.checked),
           advancedMode: getActiveAdvancedMode(),
           calcDepth: getActiveCalcDepth(),
           priorityMask: getSelectedPriorityMask(),
@@ -1803,6 +2250,7 @@
         }
 
         isCalculating = true;
+        lastProgressSnapshotSignature = '';
         updateCalcControls();
 
         const token = ++solveToken;
@@ -1826,9 +2274,20 @@
         };
         solveContextByToken.set(token, context);
 
-        if (resultCache.has(cacheKey)) {
-          const cached = resultCache.get(cacheKey);
-          const signature = boardSignature(cached.board, cached.boardInstance);
+        const cached = resultCache.get(cacheKey);
+        const bypassCacheForFreshSolve = isManualTrigger || !!(objective && objective.extendedSearch);
+        const shouldSkipTimedOutCache = isManualTrigger || !!(objective && objective.extendedSearch);
+        const canUseCached = !!cached && !bypassCacheForFreshSolve && !(shouldSkipTimedOutCache && !!cached.timedOut);
+
+        if (canUseCached) {
+          const ranked = Array.isArray(cached.topLayouts) && cached.topLayouts.length ? cached.topLayouts : [cached];
+          setRankedLayouts(ranked, inputCounts);
+          activeRankedLayoutIndex = 0;
+          const cachedPrimary = latestRankedLayouts[0] || {
+            ...cached,
+            unused: inputCounts.map((v, i) => v - (Number(cached.used && cached.used[i]) || 0))
+          };
+          const signature = boardSignature(cachedPrimary.board, cachedPrimary.boardInstance);
           if (context.mode === 'variant' && hasSeenLayout(baseCountsKey, signature)) {
             if (scheduleVariantRetry(context)) {
               return;
@@ -1836,11 +2295,7 @@
             solveContextByToken.delete(token);
             return;
           }
-          renderResult({
-            ...cached,
-            solveMs: 0,
-            unused: inputCounts.map((v, i) => v - cached.used[i])
-          });
+          renderResult(cachedPrimary);
           rememberLayout(baseCountsKey, signature);
           hasPendingChanges = false;
           isCalculating = false;
@@ -1880,6 +2335,7 @@
               return;
             }
             if (payload.type === 'progress') {
+              applyBestSoFarPreview(inputCounts, payload.bestSoFar || null, payload.statesSearched || 0, payload.placementsSearched || 0);
               updateProgressStatus(payload.statesSearched || 0, payload.placementsSearched || 0);
               return;
             }
@@ -1950,7 +2406,13 @@
             ensureMainSolverRuntime();
             const result = solveOptimalLayout(
               solverCounts,
-              null,
+              (statesSearched, placementsSearched, bestSoFar) => {
+                if (token !== solveToken) {
+                  return;
+                }
+                applyBestSoFarPreview(inputCounts, bestSoFar || null, statesSearched || 0, placementsSearched || 0);
+                updateProgressStatus(statesSearched || 0, placementsSearched || 0);
+              },
               compatibilityMode
                 ? {
                     maxStates: 2500000,
@@ -1989,7 +2451,14 @@
         }
         const context = solveContextByToken.get(token);
         const baseCountsKey = context && context.fixed ? context.fixed.baseCountsKey : getSolverCounts(inputCounts).join(',');
-        const signature = boardSignature(result.board, result.boardInstance);
+        const rankedSource = Array.isArray(result.topLayouts) && result.topLayouts.length ? result.topLayouts : [result];
+        setRankedLayouts(rankedSource, inputCounts);
+        activeRankedLayoutIndex = 0;
+        const primaryLayout = latestRankedLayouts[0] || {
+          ...result,
+          unused: inputCounts.map((v, i) => v - (Number(result.used && result.used[i]) || 0))
+        };
+        const signature = boardSignature(primaryLayout.board, primaryLayout.boardInstance);
         if (context && context.mode === 'variant' && hasSeenLayout(baseCountsKey, signature)) {
           if (scheduleVariantRetry(context)) {
             return;
@@ -1999,16 +2468,31 @@
         }
 
         const ended = performance.now();
-        result.solveMs = ended - startedAt;
-        result.unused = inputCounts.map((v, i) => v - result.used[i]);
-        resultCache.set(cacheKey, { ...result, solveMs: 0 });
+        const solveMs = ended - startedAt;
+        for (const layout of latestRankedLayouts) {
+          layout.solveMs = solveMs;
+          layout.placementsSearched = Number.isFinite(result.placementsSearched) ? result.placementsSearched : layout.placementsSearched;
+          layout.statesSearched = Number.isFinite(result.statesSearched) ? result.statesSearched : layout.statesSearched;
+        }
+        const cachedLayouts = latestRankedLayouts.map((layout) => ({
+          ...layout,
+          solveMs: 0
+        }));
+        resultCache.set(cacheKey, {
+          ...primaryLayout,
+          solveMs: 0,
+          topLayouts: cachedLayouts
+        });
         rememberLayout(baseCountsKey, signature);
-        renderResult(result);
+        renderResult(latestRankedLayouts[0]);
         isCalculating = false;
         hasPendingChanges = false;
+        lastProgressSnapshotSignature = '';
         updateCalcControls();
         stopProgressTicker();
-        setStatus(false, result.timedOut ? 'Solved (time-limited)' : 'Solved');
+        const timedOut = !!result.timedOut;
+        const layoutCount = latestRankedLayouts.length;
+        setStatus(false, timedOut ? 'Solved (time-limited)' : 'Solved', layoutCount > 1 ? `Top ${layoutCount} layouts ready (A-D)` : '');
         destroySolverWorker();
         solveContextByToken.delete(token);
       }
@@ -2060,6 +2544,7 @@
           calcDepth,
           calcDepthScale,
           prioritizeFullBoard: !!(fillPriorityToggleEl && fillPriorityToggleEl.checked),
+          extendedSearch: !!(extendedSearchToggleEl && extendedSearchToggleEl.checked),
           selectedMask
         };
       }
@@ -2069,7 +2554,8 @@
         const calcDepth = objective && typeof objective.calcDepth === 'string' ? objective.calcDepth : CALC_DEPTH.SHORT;
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
-        return `${mode}|d:${calcDepth}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}`;
+        const extendedSearch = !!(objective && objective.extendedSearch);
+        return `${mode}|d:${calcDepth}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}|x:${extendedSearch ? 1 : 0}`;
       }
 
       function updateRulesText() {
@@ -2147,13 +2633,19 @@
       function cancelCurrentSolve(statusText) {
         cancelAutoCalculation();
         hasPendingChanges = true;
+        lastProgressSnapshotSignature = '';
         updateCalcControls();
         setStatus(false, statusText || 'Calculation canceled');
       }
 
       function updateCalcControls() {
-        calculateBtnEl.textContent = isCalculating ? 'Cancel & Recalculate' : 'Calculate';
+        calculateBtnEl.textContent = isCalculating ? 'Recalculate' : 'Calculate';
         calculateBtnEl.disabled = false;
+        if (stopBtnEl) {
+          stopBtnEl.disabled = !isCalculating;
+        }
+        anotherLayoutBtnEl.disabled = isCalculating;
+        resetBtnEl.disabled = isCalculating;
       }
 
       function startProgressTicker() {
@@ -2281,6 +2773,7 @@
               calcDepth,
               calcDepthScale: Number.isFinite(calcDepthScaleRaw) && calcDepthScaleRaw > 0 ? calcDepthScaleRaw : 1,
               prioritizeFullBoard: !!(data.objective && data.objective.prioritizeFullBoard),
+              extendedSearch: !!(data.objective && data.objective.extendedSearch),
               selectedMask: Number.isFinite(selectedMaskRaw) ? (selectedMaskRaw | 0) : 0
             };
             for (let i = 0; i < PIECES.length; i++) {
@@ -2288,12 +2781,20 @@
               const safe = Number.isFinite(value) ? Math.floor(value) : 0;
               counts[i] = Math.max(0, Math.min(MAX_USABLE_PIECES, safe));
             }
-            const result = solveOptimalLayout(counts, (statesSearched, placementsSearched) => {
+            const result = solveOptimalLayout(counts, (statesSearched, placementsSearched, bestSoFar) => {
               self.postMessage({
                 type: 'progress',
                 requestId: data.requestId,
                 statesSearched,
-                placementsSearched
+                placementsSearched,
+                bestSoFar: bestSoFar
+                  ? {
+                      ...bestSoFar,
+                      board: Array.from(bestSoFar.board),
+                      boardInstance: Array.from(bestSoFar.boardInstance),
+                      used: Array.from(bestSoFar.used)
+                    }
+                  : null
               });
             }, null, variantSeed, objective);
             self.postMessage({
@@ -2303,7 +2804,15 @@
                 ...result,
                 board: Array.from(result.board),
                 boardInstance: Array.from(result.boardInstance),
-                used: Array.from(result.used)
+                used: Array.from(result.used),
+                topLayouts: Array.isArray(result.topLayouts)
+                  ? result.topLayouts.map((layout) => ({
+                      ...layout,
+                      board: Array.from(layout.board),
+                      boardInstance: Array.from(layout.boardInstance),
+                      used: Array.from(layout.used)
+                    }))
+                  : []
               }
             });
           } catch (err) {
@@ -2327,27 +2836,37 @@
         const MODE_BALANCED = 'balanced';
         const MODE_PREFER_SELECTED = 'preferSelected';
         const MODE_STRICT_SELECTED = 'strictSelected';
+        const TOP_LAYOUT_LIMIT = 4;
         const rawMode = objective && typeof objective.mode === 'string' ? objective.mode : MODE_BALANCED;
         const mode = [MODE_BALANCED, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
         const calcDepthScale = objective && Number.isFinite(objective.calcDepthScale) && objective.calcDepthScale > 0
           ? Number(objective.calcDepthScale)
           : 1;
         const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
+        const extendedSearch = !!(objective && objective.extendedSearch);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === MODE_PREFER_SELECTED || mode === MODE_STRICT_SELECTED) && selectedMask !== 0;
         const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates)
           ? Math.max(10000, Math.floor(Number(limits.maxStates) * calcDepthScale))
-          : Math.max(10000, Math.floor((prioritizeFullBoard ? 12000000 : 5000000) * calcDepthScale));
+          : (extendedSearch
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(10000, Math.floor((prioritizeFullBoard ? 12000000 : 5000000) * calcDepthScale)));
         const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs)
           ? Math.max(100, Math.floor(Number(limits.maxMs) * calcDepthScale))
-          : Math.max(100, Math.floor((prioritizeFullBoard ? 18000 : 10000) * calcDepthScale));
+          : (extendedSearch
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(100, Math.floor((prioritizeFullBoard ? 18000 : 10000) * calcDepthScale)));
         const FULL_ONLY_MAX_STATES = limits && Number.isFinite(limits.fullMaxStates)
           ? Math.max(10000, Math.floor(Number(limits.fullMaxStates) * calcDepthScale))
-          : Math.max(10000, Math.floor(22000000 * calcDepthScale));
+          : (extendedSearch
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(10000, Math.floor(22000000 * calcDepthScale)));
         const FULL_ONLY_MAX_MS = limits && Number.isFinite(limits.fullMaxMs)
           ? Math.max(100, Math.floor(Number(limits.fullMaxMs) * calcDepthScale))
-          : Math.max(100, Math.floor(16000 * calcDepthScale));
-        const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : 45000;
+          : (extendedSearch
+            ? Number.MAX_SAFE_INTEGER
+            : Math.max(100, Math.floor(16000 * calcDepthScale)));
+        const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : (extendedSearch ? 15000 : 45000);
         const CHECK_INTERVAL_MASK = 4095;
         let startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
@@ -2381,8 +2900,55 @@
           boardInstance: new Int32Array(CELLS).fill(-1),
           used: new Array(PIECES.length).fill(0)
         };
+        const topLayouts = [];
+        const topLayoutSignatures = new Set();
 
-        function tryFindFullBoard(maxStates, maxMs) {
+        function compareScoredLayouts(candidate, bestRef) {
+          const primaryCmp = comparePrimaryScore(candidate.lines, candidate.filled, candidate.selectedUsed, bestRef);
+          if (primaryCmp !== 0) {
+            return primaryCmp;
+          }
+          if (candidate.holes !== bestRef.holes) {
+            return candidate.holes < bestRef.holes ? 1 : -1;
+          }
+          if (candidate.bottomCompact !== bestRef.bottomCompact) {
+            return candidate.bottomCompact > bestRef.bottomCompact ? 1 : -1;
+          }
+          if (candidate.tieScore !== bestRef.tieScore) {
+            return candidate.tieScore > bestRef.tieScore ? 1 : -1;
+          }
+          if (candidate.signature !== bestRef.signature) {
+            return candidate.signature < bestRef.signature ? 1 : -1;
+          }
+          return 0;
+        }
+
+        function recordTopLayout(candidate) {
+          if (topLayoutSignatures.has(candidate.signature)) {
+            return;
+          }
+          let insertAt = topLayouts.length;
+          for (let i = 0; i < topLayouts.length; i++) {
+            if (compareScoredLayouts(candidate, topLayouts[i]) > 0) {
+              insertAt = i;
+              break;
+            }
+          }
+          if (insertAt >= TOP_LAYOUT_LIMIT) {
+            return;
+          }
+
+          topLayouts.splice(insertAt, 0, candidate);
+          topLayoutSignatures.add(candidate.signature);
+          if (topLayouts.length > TOP_LAYOUT_LIMIT) {
+            const removed = topLayouts.pop();
+            if (removed) {
+              topLayoutSignatures.delete(removed.signature);
+            }
+          }
+        }
+
+        function tryFindFullBoards(maxStates, maxMs) {
           const fullCounts = initialCounts.slice();
           const fullUsed = new Uint8Array(PIECES.length);
           const fullBoardType = new Int8Array(CELLS);
@@ -2396,6 +2962,39 @@
           let fullTimedOut = false;
           const fullStartedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const deadStates = new Set();
+          const fullLayouts = [];
+          const fullLayoutSignatures = new Set();
+          const fullTargetCount = extendedSearch ? TOP_LAYOUT_LIMIT : 1;
+
+          function compareFullLayouts(a, b) {
+            if (a.bottomCompact !== b.bottomCompact) return b.bottomCompact - a.bottomCompact;
+            if (a.tieScore !== b.tieScore) return b.tieScore - a.tieScore;
+            return String(a.signature).localeCompare(String(b.signature));
+          }
+
+          function recordFullLayout(candidate) {
+            if (fullLayoutSignatures.has(candidate.signature)) {
+              return;
+            }
+            let insertAt = fullLayouts.length;
+            for (let i = 0; i < fullLayouts.length; i++) {
+              if (compareFullLayouts(candidate, fullLayouts[i]) > 0) {
+                insertAt = i;
+                break;
+              }
+            }
+            if (insertAt >= fullTargetCount) {
+              return;
+            }
+            fullLayouts.splice(insertAt, 0, candidate);
+            fullLayoutSignatures.add(candidate.signature);
+            if (fullLayouts.length > fullTargetCount) {
+              const removed = fullLayouts.pop();
+              if (removed) {
+                fullLayoutSignatures.delete(removed.signature);
+              }
+            }
+          }
 
           function dfsFull(index, occMask, filled, bottomCompact) {
             if (fullTimedOut) {
@@ -2416,16 +3015,31 @@
             }
 
             if (progressCallback && fullStatesSearched % PROGRESS_EVERY === 0) {
-              progressCallback(statesSearched + fullStatesSearched, placementsSearched + fullPlacementsSearched);
+              const bestSoFar = fullLayouts.length ? fullLayouts[0] : (topLayouts.length ? topLayouts[0] : null);
+              progressCallback(
+                statesSearched + fullStatesSearched,
+                placementsSearched + fullPlacementsSearched,
+                bestSoFar
+              );
             }
 
             if (filled === CELLS) {
-              return {
+              const signature = boardSignature(fullBoardType, fullBoardInstance);
+              const candidate = {
+                lines: ROWS,
+                filled: CELLS,
+                empty: 0,
+                holes: 0,
+                selectedUsed: 0,
+                bottomCompact,
+                tieScore: boardVariantScore(fullBoardType, variantSeed),
+                signature,
                 board: Int8Array.from(fullBoardType),
                 boardInstance: Int32Array.from(fullBoardInstance),
-                used: Array.from(fullUsed),
-                bottomCompact
+                used: Array.from(fullUsed)
               };
+              recordFullLayout(candidate);
+              return fullLayouts.length >= fullTargetCount;
             }
 
             if (fullRemainingPieces * PIECE_SIZE + filled < CELLS) {
@@ -2492,7 +3106,7 @@
                 bottomCompact + placement.bottomSum
               );
               if (found) {
-                return found;
+                return true;
               }
 
               for (let c = 0; c < placement.cells.length; c++) {
@@ -2509,9 +3123,9 @@
             return false;
           }
 
-          const found = dfsFull(0, 0n, 0, 0);
+          dfsFull(0, 0n, 0, 0);
           return {
-            found,
+            layouts: fullLayouts,
             timedOut: fullTimedOut,
             statesSearched: fullStatesSearched,
             placementsSearched: fullPlacementsSearched
@@ -2519,25 +3133,53 @@
         }
 
         if (prioritizeFullBoard && !useComponentPreference) {
-          const fullAttempt = tryFindFullBoard(FULL_ONLY_MAX_STATES, FULL_ONLY_MAX_MS);
+          const fullAttempt = tryFindFullBoards(FULL_ONLY_MAX_STATES, FULL_ONLY_MAX_MS);
           statesSearched += fullAttempt.statesSearched;
           placementsSearched += fullAttempt.placementsSearched;
           fullSearchTimedOut = fullAttempt.timedOut;
 
-          if (fullAttempt.found) {
+          if (fullAttempt.layouts && fullAttempt.layouts.length) {
+            if (!extendedSearch) {
+              const first = fullAttempt.layouts[0];
+              return {
+                lines: ROWS,
+                filled: CELLS,
+                empty: 0,
+                holes: 0,
+                selectedUsed: 0,
+                bottomCompact: first.bottomCompact,
+                tieScore: first.tieScore,
+                signature: first.signature,
+                timedOut: fullAttempt.timedOut,
+                board: first.board,
+                boardInstance: first.boardInstance,
+                used: first.used,
+                placementsSearched,
+                statesSearched,
+                solveMs: 0,
+                topLayouts: [first]
+              };
+            }
+
+            // In extended + full-board mode, return only full-board alternatives.
+            const first = fullAttempt.layouts[0];
             return {
               lines: ROWS,
               filled: CELLS,
               empty: 0,
               holes: 0,
-              bottomCompact: fullAttempt.found.bottomCompact,
+              selectedUsed: 0,
+              bottomCompact: first.bottomCompact,
+              tieScore: first.tieScore,
+              signature: first.signature,
               timedOut: fullAttempt.timedOut,
-              board: fullAttempt.found.board,
-              boardInstance: fullAttempt.found.boardInstance,
-              used: fullAttempt.found.used,
+              board: first.board,
+              boardInstance: first.boardInstance,
+              used: first.used,
               placementsSearched,
               statesSearched,
-              solveMs: 0
+              solveMs: 0,
+              topLayouts: fullAttempt.layouts
             };
           }
 
@@ -2601,7 +3243,7 @@
 
           if (progressCallback && statesSearched - lastProgressReport >= PROGRESS_EVERY) {
             lastProgressReport = statesSearched;
-            progressCallback(statesSearched, placementsSearched);
+            progressCallback(statesSearched, placementsSearched, topLayouts.length ? topLayouts[0] : null);
           }
 
           let selectedRemaining = 0;
@@ -2614,7 +3256,10 @@
           }
 
           const bounds = getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces, selectedUsed, selectedRemaining);
-          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, bounds.upperSelectedUsed, best, {
+          const pruneTarget = (extendedSearch && topLayouts.length >= TOP_LAYOUT_LIMIT)
+            ? topLayouts[topLayouts.length - 1]
+            : (!extendedSearch ? best : null);
+          if (pruneTarget && !canStillBeatBest(bounds.upperLines, bounds.upperFilled, bounds.upperSelectedUsed, pruneTarget, {
             mode,
             prioritizeFullBoard,
             selectedMask
@@ -2622,11 +3267,13 @@
             return;
           }
 
-          const key = `${index}|${rowDeadMask}|${counts.join(',')}|${occMask.toString(36)}`;
-          if (seenStates.has(key)) {
-            return;
+          if (!extendedSearch) {
+            const key = `${index}|${rowDeadMask}|${counts.join(',')}|${occMask.toString(36)}`;
+            if (seenStates.has(key)) {
+              return;
+            }
+            seenStates.add(key);
           }
-          seenStates.add(key);
 
           if (index >= CELLS || remainingPieces === 0) {
             evaluateCandidate(occMask, linesComplete, filled, bottomCompact, selectedUsed);
@@ -2754,12 +3401,26 @@
 
         function evaluateCandidate(occMask, lines, filled, bottomCompact, selectedUsed) {
           const primaryCmp = comparePrimaryScore(lines, filled, selectedUsed, best);
+          const holes = countHoles(occMask);
+          const tieScore = boardVariantScore(boardType, variantSeed);
+          const signature = boardSignature(boardType, boardInstance);
+          const candidateSnapshot = {
+            lines,
+            filled,
+            empty: CELLS - filled,
+            holes,
+            selectedUsed,
+            bottomCompact,
+            tieScore,
+            signature,
+            board: Int8Array.from(boardType),
+            boardInstance: Int32Array.from(boardInstance),
+            used: Array.from(used)
+          };
+          recordTopLayout(candidateSnapshot);
           if (primaryCmp < 0) {
             return;
           }
-          const holes = countHoles(occMask);
-          const tieScore = boardVariantScore(boardType, variantSeed);
-          let signature = best.signature;
 
           if (primaryCmp === 0) {
             if (holes > best.holes || (holes === best.holes && bottomCompact < best.bottomCompact)) {
@@ -2769,15 +3430,10 @@
               if (tieScore < best.tieScore) {
                 return;
               }
-              signature = boardSignature(boardType, boardInstance);
               if (tieScore === best.tieScore && signature >= best.signature) {
                 return;
               }
             }
-          }
-
-          if (primaryCmp > 0) {
-            signature = boardSignature(boardType, boardInstance);
           }
 
           best.lines = lines;
@@ -2787,11 +3443,11 @@
           best.bottomCompact = bottomCompact;
           best.tieScore = tieScore;
           best.signature = signature;
-          best.board = Int8Array.from(boardType);
-          best.boardInstance = Int32Array.from(boardInstance);
-          best.used = Array.from(used);
+          best.board = candidateSnapshot.board;
+          best.boardInstance = candidateSnapshot.boardInstance;
+          best.used = candidateSnapshot.used;
 
-          if (!useComponentPreference && lines === ROWS && filled === CELLS) {
+          if (!extendedSearch && !useComponentPreference && lines === ROWS && filled === CELLS) {
             foundPerfect = true;
           }
         }
@@ -2804,6 +3460,24 @@
           best.selectedUsed = 0;
           best.holes = 0;
           best.bottomCompact = 0;
+          best.tieScore = 0;
+          best.signature = boardSignature(best.board, best.boardInstance);
+        }
+
+        if (!topLayouts.length) {
+          recordTopLayout({
+            lines: best.lines,
+            filled: best.filled,
+            empty: CELLS - best.filled,
+            holes: best.holes,
+            selectedUsed: best.selectedUsed,
+            bottomCompact: best.bottomCompact,
+            tieScore: best.tieScore,
+            signature: best.signature,
+            board: Int8Array.from(best.board),
+            boardInstance: Int32Array.from(best.boardInstance),
+            used: Array.from(best.used)
+          });
         }
 
         return {
@@ -2811,20 +3485,168 @@
           filled: best.filled,
           empty: CELLS - best.filled,
           holes: best.holes,
+          selectedUsed: best.selectedUsed,
           bottomCompact: best.bottomCompact,
+          tieScore: best.tieScore,
+          signature: best.signature,
           timedOut: timedOut || fullSearchTimedOut,
           board: best.board,
           boardInstance: best.boardInstance,
           used: best.used,
           placementsSearched,
           statesSearched,
-          solveMs: 0
+          solveMs: 0,
+          topLayouts
         };
       }
 
       // ------------------------------
       // Rendering
       // ------------------------------
+      function compareResultForRanking(a, b) {
+        const mode = getActiveAdvancedMode();
+        const prioritizeFullBoard = !!(fillPriorityToggleEl && fillPriorityToggleEl.checked);
+        const selectedMask = getSelectedPriorityMask();
+        const useComponentPreference = isComponentPriorityMode(mode) && selectedMask !== 0;
+
+        const aIsFull = a.filled === CELLS;
+        const bIsFull = b.filled === CELLS;
+
+        if (useComponentPreference && prioritizeFullBoard) {
+          if (a.selectedUsed !== b.selectedUsed) return b.selectedUsed - a.selectedUsed;
+          if (aIsFull !== bIsFull) return aIsFull ? -1 : 1;
+          if (a.lines !== b.lines) return b.lines - a.lines;
+          if (a.filled !== b.filled) return b.filled - a.filled;
+        } else if (prioritizeFullBoard) {
+          if (aIsFull !== bIsFull) return aIsFull ? -1 : 1;
+          if (a.lines !== b.lines) return b.lines - a.lines;
+          if (a.filled !== b.filled) return b.filled - a.filled;
+        } else if (useComponentPreference && mode === ADVANCED_MODE.STRICT_SELECTED) {
+          if (a.selectedUsed !== b.selectedUsed) return b.selectedUsed - a.selectedUsed;
+          if (a.lines !== b.lines) return b.lines - a.lines;
+          if (a.filled !== b.filled) return b.filled - a.filled;
+        } else {
+          if (a.lines !== b.lines) return b.lines - a.lines;
+          if (useComponentPreference && a.selectedUsed !== b.selectedUsed) return b.selectedUsed - a.selectedUsed;
+          if (a.filled !== b.filled) return b.filled - a.filled;
+        }
+
+        if (a.holes !== b.holes) return a.holes - b.holes;
+        if (a.bottomCompact !== b.bottomCompact) return b.bottomCompact - a.bottomCompact;
+        if (a.tieScore !== b.tieScore) return b.tieScore - a.tieScore;
+        return String(a.signature || '').localeCompare(String(b.signature || ''));
+      }
+
+      function setRankedLayouts(layouts, inputCounts) {
+        const source = Array.isArray(layouts) ? layouts : [];
+        const deduped = [];
+        const seen = new Set();
+        for (const rawLayout of source) {
+          if (!rawLayout || !Array.isArray(rawLayout.board) && !(rawLayout.board && typeof rawLayout.board.length === 'number')) {
+            continue;
+          }
+          const signature = rawLayout.signature || boardSignature(rawLayout.board, rawLayout.boardInstance);
+          if (seen.has(signature)) {
+            continue;
+          }
+          seen.add(signature);
+          const usedArr = Array.from(rawLayout.used || []);
+          const normalized = {
+            ...rawLayout,
+            signature,
+            lines: Number.isFinite(rawLayout.lines) ? rawLayout.lines : 0,
+            filled: Number.isFinite(rawLayout.filled) ? rawLayout.filled : 0,
+            empty: Number.isFinite(rawLayout.empty) ? rawLayout.empty : Math.max(0, CELLS - (Number(rawLayout.filled) || 0)),
+            holes: Number.isFinite(rawLayout.holes) ? rawLayout.holes : 0,
+            selectedUsed: Number.isFinite(rawLayout.selectedUsed) ? rawLayout.selectedUsed : 0,
+            bottomCompact: Number.isFinite(rawLayout.bottomCompact) ? rawLayout.bottomCompact : 0,
+            tieScore: Number.isFinite(rawLayout.tieScore) ? rawLayout.tieScore : 0,
+            placementsSearched: Number.isFinite(rawLayout.placementsSearched) ? rawLayout.placementsSearched : 0,
+            statesSearched: Number.isFinite(rawLayout.statesSearched) ? rawLayout.statesSearched : 0,
+            board: Array.from(rawLayout.board),
+            boardInstance: Array.from(rawLayout.boardInstance || []),
+            used: usedArr,
+            unused: inputCounts.map((count, idx) => count - (Number(usedArr[idx]) || 0)),
+            solveMs: Number.isFinite(rawLayout.solveMs) ? rawLayout.solveMs : 0
+          };
+          deduped.push(normalized);
+        }
+        deduped.sort(compareResultForRanking);
+        latestRankedLayouts = deduped.slice(0, MAX_RANKED_LAYOUTS);
+        if (activeRankedLayoutIndex >= latestRankedLayouts.length) {
+          activeRankedLayoutIndex = 0;
+        }
+        renderLayoutOptions();
+      }
+
+      function renderLayoutOptions() {
+        if (!layoutOptionsEl) {
+          return;
+        }
+        const useSmallestWindowText = window.innerWidth <= 460;
+        layoutOptionsEl.innerHTML = '';
+        const count = latestRankedLayouts.length;
+        layoutOptionsEl.hidden = count === 0;
+        if (count === 0) {
+          return;
+        }
+        const labels = ['A', 'B', 'C', 'D'];
+        for (let i = 0; i < labels.length; i++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'layout-option-btn';
+          const layout = latestRankedLayouts[i];
+          const hasLayout = !!layout;
+          if (hasLayout && i === activeRankedLayoutIndex) {
+            btn.classList.add('active');
+          }
+          if (hasLayout) {
+            const isFull = layout.filled === CELLS;
+            const detailText = isFull
+              ? `${layout.lines} Lines${useSmallestWindowText ? ' - Full' : ' - Full Board'}`
+              : `${layout.lines} Lines · ${layout.filled}`;
+            btn.innerHTML = `<span class="layout-option-letter">${labels[i]}</span><span class="layout-option-sep">·</span><span class="layout-option-detail">${detailText}</span>`;
+          } else {
+            btn.innerHTML = `<span class="layout-option-letter">${labels[i]}</span><span class="layout-option-sep">·</span><span class="layout-option-detail">n/a</span>`;
+          }
+          btn.title = hasLayout
+            ? `Layout ${labels[i]}: ${layout.lines} lines, ${layout.filled} filled, ${layout.holes} holes`
+            : `Layout ${labels[i]} unavailable for this run`;
+          btn.disabled = !hasLayout;
+          btn.addEventListener('click', () => {
+            if (isCalculating || !hasLayout) {
+              return;
+            }
+            activeRankedLayoutIndex = i;
+            renderLayoutOptions();
+            renderResult(latestRankedLayouts[i]);
+            setStatus(false, `Showing Layout ${labels[i]} of ${count}`);
+          });
+          layoutOptionsEl.appendChild(btn);
+        }
+      }
+
+      function applyBestSoFarPreview(inputCounts, bestSoFar, statesSearched, placementsSearched) {
+        if (!bestSoFar || !Array.isArray(bestSoFar.board) || !Array.isArray(bestSoFar.used)) {
+          return;
+        }
+        const signature = bestSoFar.signature || boardSignature(bestSoFar.board, bestSoFar.boardInstance);
+        if (signature === lastProgressSnapshotSignature) {
+          return;
+        }
+        lastProgressSnapshotSignature = signature;
+        const preview = {
+          ...bestSoFar,
+          signature,
+          empty: Number.isFinite(bestSoFar.empty) ? bestSoFar.empty : Math.max(0, CELLS - (Number(bestSoFar.filled) || 0)),
+          placementsSearched,
+          statesSearched,
+          solveMs: Math.max(0, performance.now() - solveStartedAt),
+          unused: inputCounts.map((count, idx) => count - (Number(bestSoFar.used[idx]) || 0))
+        };
+        renderResult(preview);
+      }
+
       function renderResult(result) {
         const completeRows = getCompleteRows(result.board);
 
@@ -3002,14 +3824,17 @@
           card.className = 'usage-card';
           card.innerHTML = `
             <div class="usage-top">
-              <span>${piece.id}</span>
-              <span class="swatch" style="background:${piece.color}"></span>
+              <span class="usage-piece-icon" aria-label="${piece.name}"></span>
             </div>
             <div class="usage-lines">
               used: <span class="used-val">0</span><br>
               unused: <span class="unused-val">0</span>
             </div>
           `;
+          const usageIconEl = card.querySelector('.usage-piece-icon');
+          if (usageIconEl) {
+            renderPieceShape(usageIconEl, piece.cells, piece.color);
+          }
           usageGridEl.appendChild(card);
           usageCardsById[piece.id] = card;
         }
