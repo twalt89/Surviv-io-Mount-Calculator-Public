@@ -1623,7 +1623,7 @@
             return;
           }
           if (prioritizeFullBoard) {
-            rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) usage of selected components (${selectedLabel})</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement.`;
             return;
           }
           rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
@@ -1639,7 +1639,7 @@
             return;
           }
           if (prioritizeFullBoard) {
-            rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) completed horizontal rows</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement.`;
             return;
           }
           rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
@@ -2033,7 +2033,7 @@
           };
         }
 
-        if (prioritizeFullBoard) {
+        if (prioritizeFullBoard && !useComponentPreference) {
           const fullAttempt = tryFindFullBoard(FULL_ONLY_MAX_STATES, FULL_ONLY_MAX_MS);
           statesSearched += fullAttempt.statesSearched;
           placementsSearched += fullAttempt.placementsSearched;
@@ -2063,6 +2063,15 @@
         function comparePrimaryScore(lines, filled, selectedUsed, bestRef) {
           const bestIsFull = bestRef.filled === CELLS;
           const candidateIsFull = filled === CELLS;
+
+          if (useComponentPreference && prioritizeFullBoard) {
+            if (selectedUsed !== bestRef.selectedUsed) return selectedUsed > bestRef.selectedUsed ? 1 : -1;
+            if (candidateIsFull && !bestIsFull) return 1;
+            if (!candidateIsFull && bestIsFull) return -1;
+            if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
+            if (filled !== bestRef.filled) return filled > bestRef.filled ? 1 : -1;
+            return 0;
+          }
 
           if (prioritizeFullBoard) {
             if (candidateIsFull && !bestIsFull) return 1;
@@ -2602,6 +2611,32 @@
         const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === 'preferSelected' || mode === 'strictSelected') && selectedMask !== 0;
+
+        if (useComponentPreference && prioritizeFullBoard) {
+          if (upperSelectedUsed < best.selectedUsed) {
+            return false;
+          }
+          if (upperSelectedUsed > best.selectedUsed) {
+            return true;
+          }
+
+          const bestIsFull = best.filled === CELLS;
+          const canStillBeFull = upperFilled >= CELLS;
+          if (bestIsFull && !canStillBeFull) {
+            return false;
+          }
+          if (!bestIsFull && canStillBeFull) {
+            return true;
+          }
+
+          if (upperLines < best.lines) {
+            return false;
+          }
+          if (upperLines === best.lines && upperFilled < best.filled) {
+            return false;
+          }
+          return true;
+        }
 
         if (prioritizeFullBoard) {
           const bestIsFull = best.filled === CELLS;
