@@ -872,14 +872,14 @@
         </div>
         <div class="advanced-mode-card">
           <h4 class="advanced-mode-heading">Advanced mode</h4>
+          <label class="advanced-mode-option" for="fullBoardPriorityToggle">
+            <input id="fullBoardPriorityToggle" type="checkbox" checked />
+            <span>Prioritize full board fill</span>
+          </label>
           <div class="advanced-mode-options" role="radiogroup" aria-label="Advanced mode">
             <label class="advanced-mode-option" for="modeBalanced">
-              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" />
+              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" checked />
               <span>Balanced (rows first)</span>
-            </label>
-            <label class="advanced-mode-option" for="modeFullBoard">
-              <input id="modeFullBoard" type="radio" name="advancedMode" value="fullBoard" checked />
-              <span>Full board first</span>
             </label>
             <label class="advanced-mode-option" for="modePreferSelected">
               <input id="modePreferSelected" type="radio" name="advancedMode" value="preferSelected" />
@@ -972,6 +972,7 @@
       const statusTextEl = document.getElementById('statusText');
       const statusMetaEl = document.getElementById('statusMeta');
       const liveToggleEl = document.getElementById('liveToggle');
+      const fullBoardPriorityToggleEl = document.getElementById('fullBoardPriorityToggle');
       const advancedModeInputEls = Array.from(document.querySelectorAll('input[name="advancedMode"]'));
       const priorityComponentsEl = document.getElementById('priorityComponents');
       const priorityComponentsGridEl = document.getElementById('priorityComponentsGrid');
@@ -1024,6 +1025,9 @@
       let progressTimerId = 0;
       let layoutVariantNonce = 0;
       liveToggleEl.checked = false;
+      if (fullBoardPriorityToggleEl) {
+        fullBoardPriorityToggleEl.checked = true;
+      }
       setStatsCollapsed(true);
       syncAdvancedModeUi();
       updateRulesText();
@@ -1073,6 +1077,14 @@
           resultCache.clear();
           layoutHistoryByCounts.clear();
           syncAdvancedModeUi();
+          updateRulesText();
+          scheduleSolve(false);
+        });
+      }
+      if (fullBoardPriorityToggleEl) {
+        fullBoardPriorityToggleEl.addEventListener('change', () => {
+          resultCache.clear();
+          layoutHistoryByCounts.clear();
           updateRulesText();
           scheduleSolve(false);
         });
@@ -1506,7 +1518,7 @@
         const selectedMask = isComponentPriorityMode(mode) ? getSelectedPriorityMask() : 0;
         return {
           mode,
-          prioritizeFullBoard: mode === ADVANCED_MODE.FULL_BOARD,
+          prioritizeFullBoard: !!(fullBoardPriorityToggleEl && fullBoardPriorityToggleEl.checked),
           selectedMask
         };
       }
@@ -1514,7 +1526,8 @@
       function objectiveKey(objective) {
         const mode = objective && typeof objective.mode === 'string' ? objective.mode : ADVANCED_MODE.BALANCED;
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
-        return `${mode}|m:${selectedMask}`;
+        const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
+        return `${mode}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}`;
       }
 
       function updateRulesText() {
@@ -1523,14 +1536,19 @@
         const selectedMask = getSelectedPriorityMask();
         const selectedIds = getSelectedPriorityIds(selectedMask);
         const selectedLabel = selectedIds.length ? selectedIds.join(', ') : 'none selected';
+        const fullBoardEnabled = !!(fullBoardPriorityToggleEl && fullBoardPriorityToggleEl.checked);
 
-        if (mode === ADVANCED_MODE.FULL_BOARD) {
-          rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
-          return;
-        }
         if (mode === ADVANCED_MODE.PREFER_SELECTED) {
           if (!selectedIds.length) {
+            if (fullBoardEnabled) {
+              rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate component preference.';
+              return;
+            }
             rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate component preference.';
+            return;
+          }
+          if (fullBoardEnabled) {
+            rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) usage of selected components (${selectedLabel})</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
             return;
           }
           rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
@@ -1538,10 +1556,22 @@
         }
         if (mode === ADVANCED_MODE.STRICT_SELECTED) {
           if (!selectedIds.length) {
+            if (fullBoardEnabled) {
+              rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
+              return;
+            }
             rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
             return;
           }
+          if (fullBoardEnabled) {
+            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, <strong>4) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+            return;
+          }
           rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+          return;
+        }
+        if (fullBoardEnabled) {
+          rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
           return;
         }
         rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
@@ -1751,7 +1781,8 @@
         const MODE_STRICT_SELECTED = 'strictSelected';
         const rawMode = objective && typeof objective.mode === 'string' ? objective.mode : MODE_BALANCED;
         const mode = [MODE_BALANCED, MODE_FULL_BOARD, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
-        const prioritizeFullBoard = mode === MODE_FULL_BOARD || !!(objective && objective.prioritizeFullBoard);
+        const prioritizeFullBoardAsPrimary = mode === MODE_FULL_BOARD;
+        const prioritizeFullBoard = prioritizeFullBoardAsPrimary || !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === MODE_PREFER_SELECTED || mode === MODE_STRICT_SELECTED) && selectedMask !== 0;
         const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : (prioritizeFullBoard ? 12000000 : 5000000);
@@ -1929,7 +1960,7 @@
           };
         }
 
-        if (prioritizeFullBoard) {
+        if (prioritizeFullBoardAsPrimary) {
           const fullAttempt = tryFindFullBoard(FULL_ONLY_MAX_STATES, FULL_ONLY_MAX_MS);
           statesSearched += fullAttempt.statesSearched;
           placementsSearched += fullAttempt.placementsSearched;
@@ -1959,8 +1990,14 @@
         function comparePrimaryScore(lines, filled, selectedUsed, bestRef) {
           const bestIsFull = bestRef.filled === CELLS;
           const candidateIsFull = filled === CELLS;
+          const compareFullBoardPriority = () => {
+            if (!prioritizeFullBoard || candidateIsFull === bestIsFull) {
+              return 0;
+            }
+            return candidateIsFull ? 1 : -1;
+          };
 
-          if (prioritizeFullBoard) {
+          if (prioritizeFullBoardAsPrimary) {
             if (candidateIsFull && !bestIsFull) return 1;
             if (!candidateIsFull && bestIsFull) return -1;
             if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
@@ -1970,12 +2007,16 @@
 
           if (useComponentPreference && mode === MODE_STRICT_SELECTED) {
             if (selectedUsed !== bestRef.selectedUsed) return selectedUsed > bestRef.selectedUsed ? 1 : -1;
+            const fullBoardCmp = compareFullBoardPriority();
+            if (fullBoardCmp !== 0) return fullBoardCmp;
             if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
             if (filled !== bestRef.filled) return filled > bestRef.filled ? 1 : -1;
             return 0;
           }
 
           if (lines !== bestRef.lines) return lines > bestRef.lines ? 1 : -1;
+          const fullBoardCmp = compareFullBoardPriority();
+          if (fullBoardCmp !== 0) return fullBoardCmp;
           if (useComponentPreference && selectedUsed !== bestRef.selectedUsed) {
             return selectedUsed > bestRef.selectedUsed ? 1 : -1;
           }
@@ -2495,11 +2536,12 @@
       // ------------------------------
       function canStillBeatBest(upperLines, upperFilled, upperSelectedUsed, best, objective = null) {
         const mode = objective && typeof objective.mode === 'string' ? objective.mode : 'balanced';
-        const prioritizeFullBoard = mode === 'fullBoard' || !!(objective && objective.prioritizeFullBoard);
+        const prioritizeFullBoardAsPrimary = mode === 'fullBoard';
+        const prioritizeFullBoard = prioritizeFullBoardAsPrimary || !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === 'preferSelected' || mode === 'strictSelected') && selectedMask !== 0;
 
-        if (prioritizeFullBoard) {
+        if (prioritizeFullBoardAsPrimary) {
           const bestIsFull = best.filled === CELLS;
           const canStillBeFull = upperFilled >= CELLS;
           if (bestIsFull && !canStillBeFull) {
@@ -2514,6 +2556,9 @@
           if (upperSelectedUsed < best.selectedUsed) {
             return false;
           }
+          if (prioritizeFullBoard && upperSelectedUsed === best.selectedUsed && best.filled === CELLS && upperFilled < CELLS) {
+            return false;
+          }
           if (upperSelectedUsed === best.selectedUsed && upperLines < best.lines) {
             return false;
           }
@@ -2526,10 +2571,13 @@
         if (upperLines < best.lines) {
           return false;
         }
-        if (useComponentPreference && upperLines === best.lines && upperSelectedUsed < best.selectedUsed) {
+        if (prioritizeFullBoard && upperLines === best.lines && best.filled === CELLS && upperFilled < CELLS) {
           return false;
         }
-        if (upperLines === best.lines && ((!useComponentPreference && upperFilled < best.filled) || (useComponentPreference && upperSelectedUsed === best.selectedUsed && upperFilled < best.filled))) {
+        if (useComponentPreference && !prioritizeFullBoard && upperLines === best.lines && upperSelectedUsed < best.selectedUsed) {
+          return false;
+        }
+        if (upperLines === best.lines && ((!useComponentPreference && upperFilled < best.filled) || (useComponentPreference && !prioritizeFullBoard && upperSelectedUsed === best.selectedUsed && upperFilled < best.filled))) {
           return false;
         }
         return true;
