@@ -1464,7 +1464,7 @@
         [CALC_DEPTH.LONG]: 3
       });
       const LOCAL_STATE_KEY = 'survivorio-spacecalc-state:v1';
-      const LOCAL_STATE_VERSION = 2;
+      const LOCAL_STATE_VERSION = 3;
       const LOCAL_STATE_SAVE_DEBOUNCE_MS = 140;
       const MAX_RANKED_LAYOUTS = 4;
 
@@ -1980,6 +1980,7 @@
         const safeState = rawState && typeof rawState === 'object' ? rawState : {};
         const rawVersion = Number(safeState.version);
         const isLegacySharedCountVersion = !Number.isFinite(rawVersion) || rawVersion < 2;
+        const shouldEnableExtendedSearchMigration = !Number.isFinite(rawVersion) || rawVersion < 3;
         const safeGlobal = safeState.global && typeof safeState.global === 'object' ? safeState.global : {};
         const safePanel = safeGlobal.panel && typeof safeGlobal.panel === 'object' ? safeGlobal.panel : {};
         const advancedMode = Object.values(ADVANCED_MODE).includes(safeGlobal.advancedMode) ? safeGlobal.advancedMode : defaults.global.advancedMode;
@@ -2029,7 +2030,7 @@
           global: {
             liveCalculationEnabled: !!safeGlobal.liveCalculationEnabled,
             prioritizeFullBoard: safeGlobal.prioritizeFullBoard !== false,
-            extendedSearch: !!safeGlobal.extendedSearch,
+            extendedSearch: shouldEnableExtendedSearchMigration ? true : !!safeGlobal.extendedSearch,
             advancedMode,
             calcDepth,
             priorityMask,
