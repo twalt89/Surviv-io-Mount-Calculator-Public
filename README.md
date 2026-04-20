@@ -46,7 +46,3 @@ Example:
 - HTML
 - CSS
 - Vanilla JavaScript
-
-## License
-
-Add your preferred license here (for example, MIT).
