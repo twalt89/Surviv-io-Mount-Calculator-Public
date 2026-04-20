@@ -347,6 +347,22 @@
       place-items: center;
     }
 
+    .piece-shape-wrap.is-rotatable {
+      cursor: pointer;
+      border-radius: 10px;
+      outline: none;
+      transition: background-color 120ms ease;
+    }
+
+    .piece-shape-wrap.is-rotatable:hover {
+      background: rgba(34, 53, 98, 0.08);
+    }
+
+    .piece-shape-wrap.is-rotatable:focus-visible {
+      box-shadow: 0 0 0 2px rgba(45, 88, 173, 0.65);
+      background: rgba(34, 53, 98, 0.1);
+    }
+
     .piece-shape {
       --shape-cell-size: 24px;
       display: grid;
@@ -1140,6 +1156,8 @@
       const inputsById = {};
       const usageCardsById = {};
       const priorityPieceCheckboxesById = {};
+      const inventoryShapeWrapById = {};
+      const pieceRotationById = {};
       const SVG_NS = 'http://www.w3.org/2000/svg';
       const rowHighlightEls = [];
       let rowHighlightLayer = null;
@@ -1461,6 +1479,7 @@
             calcDepth: CALC_DEPTH.SHORT,
             priorityMask: 0,
             componentCounts: getDefaultCountsById(),
+            componentRotations: getDefaultRotationsById(),
             panel: {
               advancedSettingsCollapsed: false,
               advancedPriorityCollapsed: true,
@@ -1488,6 +1507,25 @@
           counts[piece.id] = clampInt(value, 0, MAX_INPUT);
         }
         return counts;
+      }
+
+      function getDefaultRotationsById() {
+        const rotations = {};
+        for (const piece of PIECES) {
+          rotations[piece.id] = 0;
+        }
+        return rotations;
+      }
+
+      function normalizeRotationsById(rawRotations) {
+        const defaults = getDefaultRotationsById();
+        const source = rawRotations && typeof rawRotations === 'object' ? rawRotations : {};
+        const rotations = {};
+        for (const piece of PIECES) {
+          const value = Object.prototype.hasOwnProperty.call(source, piece.id) ? source[piece.id] : defaults[piece.id];
+          rotations[piece.id] = ((clampInt(value, 0, 3) % 4) + 4) % 4;
+        }
+        return rotations;
       }
 
       function normalizePersistedAppState(rawState) {
@@ -1522,6 +1560,7 @@
         const hasGlobalComponentCounts = !isLegacySharedCountVersion
           && safeGlobal.componentCounts
           && typeof safeGlobal.componentCounts === 'object';
+        const componentRotations = normalizeRotationsById(safeGlobal.componentRotations);
         if (!hasGlobalComponentCounts) {
           const candidateBoardKeys = [String(COLS), ...BOARD_WIDTH_OPTIONS.map((w) => String(w))];
           let migratedCounts = null;
@@ -1547,6 +1586,7 @@
             calcDepth,
             priorityMask,
             componentCounts,
+            componentRotations,
             panel: {
               advancedSettingsCollapsed: !!safePanel.advancedSettingsCollapsed,
               advancedPriorityCollapsed: safePanel.advancedPriorityCollapsed !== false,
@@ -1609,10 +1649,18 @@
           }
 
           const sharedCounts = normalizeCountsById(normalized.global.componentCounts);
+          const sharedRotations = normalizeRotationsById(normalized.global.componentRotations);
           for (const piece of PIECES) {
             const input = inputsById[piece.id];
             if (input) {
               input.value = String(clampInt(sharedCounts[piece.id], 0, MAX_INPUT));
+            }
+            pieceRotationById[piece.id] = sharedRotations[piece.id];
+            const shapeWrap = inventoryShapeWrapById[piece.id];
+            if (shapeWrap) {
+              renderPieceShape(shapeWrap, piece.cells, piece.color, pieceRotationById[piece.id]);
+              shapeWrap.title = `${piece.name} preview. Rotation ${pieceRotationById[piece.id] * 90}°. Click to rotate 90°.`;
+              shapeWrap.setAttribute('aria-label', `${piece.name} preview rotated ${pieceRotationById[piece.id] * 90} degrees. Activate to rotate 90 degrees.`);
             }
           }
 
@@ -1633,6 +1681,15 @@
         return counts;
       }
 
+      function collectCurrentComponentRotations() {
+        const rotations = {};
+        for (const piece of PIECES) {
+          const turns = Number(pieceRotationById[piece.id]);
+          rotations[piece.id] = Number.isFinite(turns) ? (((Math.floor(turns) % 4) + 4) % 4) : 0;
+        }
+        return rotations;
+      }
+
       function collectCurrentGlobalState() {
         return {
           liveCalculationEnabled: !!liveToggleEl.checked,
@@ -1641,6 +1698,7 @@
           calcDepth: getActiveCalcDepth(),
           priorityMask: getSelectedPriorityMask(),
           componentCounts: collectCurrentComponentCounts(),
+          componentRotations: collectCurrentComponentRotations(),
           panel: {
             advancedSettingsCollapsed: !!(statsPanelEl && statsPanelEl.classList.contains('collapsed')),
             advancedPriorityCollapsed: !!(advancedModeSectionEl && advancedModeSectionEl.classList.contains('collapsed')),
@@ -2842,8 +2900,30 @@
           card.className = 'piece-card';
 
           const shapeWrap = document.createElement('div');
-          shapeWrap.className = 'piece-shape-wrap';
-          renderPieceShape(shapeWrap, piece.cells, piece.color);
+          shapeWrap.className = 'piece-shape-wrap is-rotatable';
+          shapeWrap.setAttribute('role', 'button');
+          shapeWrap.setAttribute('tabindex', '0');
+          const initialTurns = Number.isFinite(Number(pieceRotationById[piece.id])) ? (((Math.floor(Number(pieceRotationById[piece.id])) % 4) + 4) % 4) : 0;
+          pieceRotationById[piece.id] = initialTurns;
+          renderPieceShape(shapeWrap, piece.cells, piece.color, initialTurns);
+          shapeWrap.title = `${piece.name} preview. Rotation ${initialTurns * 90}°. Click to rotate 90°.`;
+          shapeWrap.setAttribute('aria-label', `${piece.name} preview rotated ${initialTurns * 90} degrees. Activate to rotate 90 degrees.`);
+          shapeWrap.addEventListener('click', () => {
+            const nextTurns = (((Number(pieceRotationById[piece.id]) || 0) + 1) % 4 + 4) % 4;
+            pieceRotationById[piece.id] = nextTurns;
+            renderPieceShape(shapeWrap, piece.cells, piece.color, nextTurns);
+            shapeWrap.title = `${piece.name} preview. Rotation ${nextTurns * 90}°. Click to rotate 90°.`;
+            shapeWrap.setAttribute('aria-label', `${piece.name} preview rotated ${nextTurns * 90} degrees. Activate to rotate 90 degrees.`);
+            schedulePersistState();
+          });
+          shapeWrap.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+              return;
+            }
+            event.preventDefault();
+            shapeWrap.click();
+          });
+          inventoryShapeWrapById[piece.id] = shapeWrap;
 
           const inputWrap = document.createElement('div');
           inputWrap.className = 'piece-input';
@@ -3187,8 +3267,14 @@
       // ------------------------------
       // Utility: UI helpers
       // ------------------------------
-      function renderPieceShape(container, cells, color) {
-        const normalized = normalizeCells(cells);
+      function renderPieceShape(container, cells, color, quarterTurns = 0) {
+        container.textContent = '';
+        const safeTurns = ((clampInt(quarterTurns, 0, 3) % 4) + 4) % 4;
+        let orientedCells = cells.map(([x, y]) => [x, y]);
+        for (let i = 0; i < safeTurns; i++) {
+          orientedCells = orientedCells.map(([x, y]) => [y, -x]);
+        }
+        const normalized = normalizeCells(orientedCells);
         const shape = document.createElement('div');
         shape.className = 'piece-shape';
         shape.style.gridTemplateColumns = `repeat(${normalized.width}, var(--shape-cell-size))`;
