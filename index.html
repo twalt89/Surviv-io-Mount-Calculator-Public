@@ -631,6 +631,30 @@
       letter-spacing: 0.01em;
     }
 
+    .advanced-mode-section {
+      gap: 10px;
+    }
+
+    .advanced-mode-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .advanced-mode-section-body {
+      display: grid;
+      gap: 8px;
+    }
+
+    .advanced-mode-section.collapsed .advanced-mode-section-body {
+      display: none;
+    }
+
+    .advanced-mode-section.collapsed .stats-toggle-chevron {
+      transform: rotate(-90deg);
+    }
+
     .advanced-mode-options {
       display: grid;
       gap: 6px;
@@ -675,6 +699,24 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+    }
+
+    .advanced-mode-warning {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: 1px solid rgba(149, 63, 22, 0.4);
+      background: rgba(255, 221, 183, 0.58);
+      color: #4d230b;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .advanced-mode-warning.is-default {
+      border-color: rgba(22, 112, 56, 0.45);
+      background: rgba(198, 242, 212, 0.7);
+      color: #114626;
     }
 
     .priority-component-pill {
@@ -921,26 +963,53 @@
             <span>Prioritize full board fill</span>
           </label>
         </div>
-        <div class="advanced-mode-card">
-          <h4 class="advanced-mode-heading">Advanced mode</h4>
-          <div class="advanced-mode-options" role="radiogroup" aria-label="Advanced mode">
-            <label class="advanced-mode-option" for="modeBalanced">
-              <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" checked />
-              <span>Balanced (rows first)</span>
-            </label>
-            <label class="advanced-mode-option" for="modePreferSelected">
-              <input id="modePreferSelected" type="radio" name="advancedMode" value="preferSelected" />
-              <span>Prefer selected components (soft)</span>
-            </label>
-            <label class="advanced-mode-option" for="modeStrictSelected">
-              <input id="modeStrictSelected" type="radio" name="advancedMode" value="strictSelected" />
-              <span>Prioritize selected components (strict)</span>
-            </label>
+        <div id="advancedModeSection" class="advanced-mode-card advanced-mode-section">
+          <div class="advanced-mode-section-head">
+            <h4 class="advanced-mode-heading">Advanced Priority Mode (Beta)</h4>
+            <button id="advancedModeToggleBtn" class="stats-toggle-btn" type="button" aria-expanded="false" aria-controls="advancedModeSectionBody">
+              <span class="advanced-mode-toggle-label">Expand</span>
+              <span class="stats-toggle-chevron" aria-hidden="true">▾</span>
+            </button>
           </div>
+          <div id="advancedModeSectionBody" class="advanced-mode-section-body">
+            <div class="advanced-mode-options" role="radiogroup" aria-label="Advanced Priority Mode (Beta)">
+              <label class="advanced-mode-option" for="modeBalanced">
+                <input id="modeBalanced" type="radio" name="advancedMode" value="balanced" checked />
+                <span>Balanced (rows first)</span>
+              </label>
+              <label class="advanced-mode-option" for="modePreferSelected">
+                <input id="modePreferSelected" type="radio" name="advancedMode" value="preferSelected" />
+                <span>Prefer selected components (soft)</span>
+              </label>
+              <label class="advanced-mode-option" for="modeStrictSelected">
+                <input id="modeStrictSelected" type="radio" name="advancedMode" value="strictSelected" />
+                <span>Prioritize selected components (strict)</span>
+              </label>
+            </div>
 
-          <div id="priorityComponents" class="priority-components">
-            <p class="priority-components-title">Priority components</p>
-            <div id="priorityComponentsGrid" class="priority-components-grid"></div>
+            <div id="priorityComponents" class="priority-components">
+              <p class="priority-components-title">Priority components</p>
+              <div id="priorityComponentsGrid" class="priority-components-grid"></div>
+            </div>
+
+            <p id="advancedModeWarning" class="advanced-mode-warning"></p>
+          </div>
+        </div>
+        <div class="advanced-mode-card">
+          <h4 class="advanced-mode-heading">Calculation depth</h4>
+          <div class="advanced-mode-options" role="radiogroup" aria-label="Calculation depth">
+            <label class="advanced-mode-option" for="depthShort">
+              <input id="depthShort" type="radio" name="calcDepth" value="short" checked />
+              <span>Short (1x)</span>
+            </label>
+            <label class="advanced-mode-option" for="depthMedium">
+              <input id="depthMedium" type="radio" name="calcDepth" value="medium" />
+              <span>Medium (1.5x)</span>
+            </label>
+            <label class="advanced-mode-option" for="depthLong">
+              <input id="depthLong" type="radio" name="calcDepth" value="long" />
+              <span>Long (3x)</span>
+            </label>
           </div>
         </div>
         <p class="rules">
@@ -998,6 +1067,19 @@
         PREFER_SELECTED: 'preferSelected',
         STRICT_SELECTED: 'strictSelected'
       });
+      const CALC_DEPTH = Object.freeze({
+        SHORT: 'short',
+        MEDIUM: 'medium',
+        LONG: 'long'
+      });
+      const CALC_DEPTH_SCALE = Object.freeze({
+        [CALC_DEPTH.SHORT]: 1,
+        [CALC_DEPTH.MEDIUM]: 1.5,
+        [CALC_DEPTH.LONG]: 3
+      });
+      const LOCAL_STATE_KEY = 'survivorio-spacecalc-state:v1';
+      const LOCAL_STATE_VERSION = 1;
+      const LOCAL_STATE_SAVE_DEBOUNCE_MS = 140;
 
       const PIECES = [
         { id: 'A', name: 'Piece A', color: getCssVar('--a'), cells: [[0,0],[0,1],[0,2],[1,1]] },
@@ -1026,6 +1108,8 @@
       const usageGridEl = document.getElementById('usageGrid');
       const statsPanelEl = document.getElementById('statsPanel');
       const statsToggleBtnEl = document.getElementById('statsToggleBtn');
+      const advancedModeSectionEl = document.getElementById('advancedModeSection');
+      const advancedModeToggleBtnEl = document.getElementById('advancedModeToggleBtn');
       const statsSectionEl = document.getElementById('statsSection');
       const statsSectionToggleBtnEl = document.getElementById('statsSectionToggleBtn');
       const spinnerEl = document.getElementById('spinner');
@@ -1034,8 +1118,10 @@
       const liveToggleEl = document.getElementById('liveToggle');
       const fillPriorityToggleEl = document.getElementById('fillPriorityToggle');
       const advancedModeInputEls = Array.from(document.querySelectorAll('input[name="advancedMode"]'));
+      const calcDepthInputEls = Array.from(document.querySelectorAll('input[name="calcDepth"]'));
       const priorityComponentsEl = document.getElementById('priorityComponents');
       const priorityComponentsGridEl = document.getElementById('priorityComponentsGrid');
+      const advancedModeWarningEl = document.getElementById('advancedModeWarning');
       const rulesEl = document.querySelector('.rules');
       const calculateBtnEl = document.getElementById('calculateBtn');
       const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
@@ -1084,14 +1170,13 @@
       let solveStartedAt = 0;
       let progressTimerId = 0;
       let layoutVariantNonce = 0;
-      liveToggleEl.checked = false;
-      if (fillPriorityToggleEl) {
-        fillPriorityToggleEl.checked = true;
-      }
-      setStatsCollapsed(true);
-      setStatsSectionCollapsed(true);
+      let persistStateTimer = 0;
+      let isApplyingPersistedState = false;
+      let persistedAppState = loadPersistedAppState();
+      applyPersistedAppState(persistedAppState);
       syncAdvancedModeUi();
       updateRulesText();
+      persistStateNow();
 
       window.addEventListener('resize', () => {
         if (!lastRenderedResult || resizeRaf) return;
@@ -1102,6 +1187,7 @@
         });
       });
       window.addEventListener('beforeunload', () => {
+        persistStateNow();
         if (solverWorkerScriptUrl) {
           URL.revokeObjectURL(solverWorkerScriptUrl);
           solverWorkerScriptUrl = '';
@@ -1111,6 +1197,11 @@
       statsToggleBtnEl.addEventListener('click', () => {
         setStatsCollapsed(!statsPanelEl.classList.contains('collapsed'));
       });
+      if (advancedModeToggleBtnEl && advancedModeSectionEl) {
+        advancedModeToggleBtnEl.addEventListener('click', () => {
+          setAdvancedModeCollapsed(!advancedModeSectionEl.classList.contains('collapsed'));
+        });
+      }
       if (statsSectionToggleBtnEl && statsSectionEl) {
         statsSectionToggleBtnEl.addEventListener('click', () => {
           setStatsSectionCollapsed(!statsSectionEl.classList.contains('collapsed'));
@@ -1121,6 +1212,7 @@
         for (const piece of PIECES) {
           inputsById[piece.id].value = DEFAULT_COUNTS[piece.id];
         }
+        schedulePersistState();
         scheduleSolve(false);
       });
 
@@ -1135,6 +1227,7 @@
         } else {
           setStatus(false, 'Live mode enabled');
         }
+        schedulePersistState();
         updateCalcControls();
       });
 
@@ -1144,6 +1237,16 @@
           layoutHistoryByCounts.clear();
           syncAdvancedModeUi();
           updateRulesText();
+          schedulePersistState();
+          scheduleSolve(false);
+        });
+      }
+      for (const depthInput of calcDepthInputEls) {
+        depthInput.addEventListener('change', () => {
+          resultCache.clear();
+          layoutHistoryByCounts.clear();
+          updateRulesText();
+          schedulePersistState();
           scheduleSolve(false);
         });
       }
@@ -1152,6 +1255,7 @@
           resultCache.clear();
           layoutHistoryByCounts.clear();
           updateRulesText();
+          schedulePersistState();
           scheduleSolve(false);
         });
       }
@@ -1163,7 +1267,12 @@
         startSolve('variant');
       });
 
-      setStatus(false, 'Manual mode: press Calculate');
+      if (liveCalculationEnabled) {
+        setStatus(false, 'Live mode enabled');
+        scheduleSolve(true);
+      } else {
+        setStatus(false, 'Manual mode: press Calculate');
+      }
       updateCalcControls();
 
       function initializeBoardSizeUi() {
@@ -1178,6 +1287,7 @@
             if (cols === COLS) {
               return;
             }
+            persistStateNow();
             const next = new URL(window.location.href);
             next.searchParams.set('w', String(cols));
             window.location.href = next.toString();
@@ -1208,6 +1318,7 @@
 
           input.addEventListener('change', () => {
             updateRulesText();
+            schedulePersistState();
             if (!isComponentPriorityMode(getActiveAdvancedMode())) {
               return;
             }
@@ -1226,6 +1337,15 @@
       function getActiveAdvancedMode() {
         const active = advancedModeInputEls.find((input) => input.checked);
         return active ? active.value : ADVANCED_MODE.BALANCED;
+      }
+
+      function getActiveCalcDepth() {
+        const active = calcDepthInputEls.find((input) => input.checked);
+        return active ? active.value : CALC_DEPTH.SHORT;
+      }
+
+      function getCalcDepthScale(depth) {
+        return CALC_DEPTH_SCALE[depth] || CALC_DEPTH_SCALE[CALC_DEPTH.SHORT];
       }
 
       function isComponentPriorityMode(mode) {
@@ -1268,16 +1388,19 @@
         }
       }
 
-      function setStatsCollapsed(collapsed) {
+      function setStatsCollapsed(collapsed, shouldPersist = true) {
         statsPanelEl.classList.toggle('collapsed', collapsed);
         statsToggleBtnEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
         const label = statsToggleBtnEl.querySelector('.stats-toggle-label');
         if (label) {
           label.textContent = collapsed ? 'Expand' : 'Collapse';
         }
+        if (shouldPersist) {
+          schedulePersistState();
+        }
       }
 
-      function setStatsSectionCollapsed(collapsed) {
+      function setStatsSectionCollapsed(collapsed, shouldPersist = true) {
         if (!statsSectionEl || !statsSectionToggleBtnEl) {
           return;
         }
@@ -1287,6 +1410,254 @@
         if (label) {
           label.textContent = collapsed ? 'Expand' : 'Collapse';
         }
+        if (shouldPersist) {
+          schedulePersistState();
+        }
+      }
+
+      function setAdvancedModeCollapsed(collapsed, shouldPersist = true) {
+        if (!advancedModeSectionEl || !advancedModeToggleBtnEl) {
+          return;
+        }
+        advancedModeSectionEl.classList.toggle('collapsed', collapsed);
+        advancedModeToggleBtnEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        const label = advancedModeToggleBtnEl.querySelector('.advanced-mode-toggle-label');
+        if (label) {
+          label.textContent = collapsed ? 'Expand' : 'Collapse';
+        }
+        if (shouldPersist) {
+          schedulePersistState();
+        }
+      }
+
+      function updateAdvancedModeWarning(mode, selectedIds, prioritizeFullBoard) {
+        if (!advancedModeWarningEl) {
+          return;
+        }
+        advancedModeWarningEl.classList.remove('is-default');
+        if (mode === ADVANCED_MODE.BALANCED) {
+          advancedModeWarningEl.classList.add('is-default');
+          advancedModeWarningEl.innerHTML = '<strong>Default mode:</strong> Uses normal row/fill scoring and ignores priority component selections.';
+          return;
+        }
+        if (!selectedIds.length) {
+          advancedModeWarningEl.innerHTML = '<strong>Warning:</strong> Priority mode is active but no components are selected, so scoring falls back to normal row/full-board behavior.';
+          return;
+        }
+        if (mode === ADVANCED_MODE.PREFER_SELECTED) {
+          advancedModeWarningEl.innerHTML = `<strong>Warning:</strong> Soft priority for selected components (${selectedIds.join(', ')}) can trade off row count for preferred usage.${prioritizeFullBoard ? ' Full-board remains the second priority when possible.' : ''}`;
+          return;
+        }
+        advancedModeWarningEl.innerHTML = `<strong>Warning:</strong> Strict priority for selected components (${selectedIds.join(', ')}) may reduce row completion and increase compute time before fallback scoring applies.${prioritizeFullBoard ? ' Full-board remains the second priority when possible.' : ''}`;
+      }
+
+      function getDefaultPersistedState() {
+        return {
+          version: LOCAL_STATE_VERSION,
+          global: {
+            liveCalculationEnabled: false,
+            prioritizeFullBoard: true,
+            advancedMode: ADVANCED_MODE.BALANCED,
+            calcDepth: CALC_DEPTH.SHORT,
+            priorityMask: 0,
+            panel: {
+              advancedSettingsCollapsed: false,
+              advancedPriorityCollapsed: true,
+              statsCollapsed: true
+            }
+          },
+          boards: {}
+        };
+      }
+
+      function getDefaultCountsById() {
+        const counts = {};
+        for (const piece of PIECES) {
+          counts[piece.id] = clampInt(DEFAULT_COUNTS[piece.id], 0, MAX_INPUT);
+        }
+        return counts;
+      }
+
+      function normalizeCountsById(rawCounts) {
+        const defaults = getDefaultCountsById();
+        const source = rawCounts && typeof rawCounts === 'object' ? rawCounts : {};
+        const counts = {};
+        for (const piece of PIECES) {
+          const value = Object.prototype.hasOwnProperty.call(source, piece.id) ? source[piece.id] : defaults[piece.id];
+          counts[piece.id] = clampInt(value, 0, MAX_INPUT);
+        }
+        return counts;
+      }
+
+      function normalizePersistedAppState(rawState) {
+        const defaults = getDefaultPersistedState();
+        const safeState = rawState && typeof rawState === 'object' ? rawState : {};
+        const safeGlobal = safeState.global && typeof safeState.global === 'object' ? safeState.global : {};
+        const safePanel = safeGlobal.panel && typeof safeGlobal.panel === 'object' ? safeGlobal.panel : {};
+        const advancedMode = Object.values(ADVANCED_MODE).includes(safeGlobal.advancedMode) ? safeGlobal.advancedMode : defaults.global.advancedMode;
+        const calcDepth = Object.values(CALC_DEPTH).includes(safeGlobal.calcDepth) ? safeGlobal.calcDepth : defaults.global.calcDepth;
+        const rawPriorityMask = Number(safeGlobal.priorityMask);
+        const maxMask = (1 << PIECES.length) - 1;
+        const priorityMask = Number.isFinite(rawPriorityMask) ? Math.max(0, Math.min(maxMask, Math.floor(rawPriorityMask))) : 0;
+
+        const boards = {};
+        const safeBoards = safeState.boards && typeof safeState.boards === 'object' ? safeState.boards : {};
+        for (const width of BOARD_WIDTH_OPTIONS) {
+          const key = String(width);
+          const boardEntry = safeBoards[key];
+          if (!boardEntry || typeof boardEntry !== 'object') {
+            continue;
+          }
+          boards[key] = {
+            counts: normalizeCountsById(boardEntry.counts)
+          };
+        }
+
+        return {
+          version: LOCAL_STATE_VERSION,
+          global: {
+            liveCalculationEnabled: !!safeGlobal.liveCalculationEnabled,
+            prioritizeFullBoard: safeGlobal.prioritizeFullBoard !== false,
+            advancedMode,
+            calcDepth,
+            priorityMask,
+            panel: {
+              advancedSettingsCollapsed: !!safePanel.advancedSettingsCollapsed,
+              advancedPriorityCollapsed: safePanel.advancedPriorityCollapsed !== false,
+              statsCollapsed: safePanel.statsCollapsed !== false
+            }
+          },
+          boards
+        };
+      }
+
+      function loadPersistedAppState() {
+        try {
+          const raw = window.localStorage.getItem(LOCAL_STATE_KEY);
+          if (!raw) {
+            return normalizePersistedAppState(null);
+          }
+          return normalizePersistedAppState(JSON.parse(raw));
+        } catch (error) {
+          return normalizePersistedAppState(null);
+        }
+      }
+
+      function setRadioByValue(inputs, value, fallbackValue) {
+        let matched = false;
+        for (const input of inputs) {
+          const active = input.value === value;
+          input.checked = active;
+          matched = matched || active;
+        }
+        if (!matched) {
+          for (const input of inputs) {
+            const active = input.value === fallbackValue;
+            input.checked = active;
+            matched = matched || active;
+          }
+        }
+        if (!matched && inputs.length) {
+          inputs[0].checked = true;
+        }
+      }
+
+      function applyPersistedAppState(state) {
+        const normalized = normalizePersistedAppState(state);
+        persistedAppState = normalized;
+        isApplyingPersistedState = true;
+        try {
+          setRadioByValue(advancedModeInputEls, normalized.global.advancedMode, ADVANCED_MODE.BALANCED);
+          setRadioByValue(calcDepthInputEls, normalized.global.calcDepth, CALC_DEPTH.SHORT);
+
+          if (fillPriorityToggleEl) {
+            fillPriorityToggleEl.checked = !!normalized.global.prioritizeFullBoard;
+          }
+          liveToggleEl.checked = !!normalized.global.liveCalculationEnabled;
+          liveCalculationEnabled = liveToggleEl.checked;
+
+          for (let i = 0; i < PIECES.length; i++) {
+            const input = priorityPieceCheckboxesById[PIECES[i].id];
+            if (!input) continue;
+            input.checked = (normalized.global.priorityMask & (1 << i)) !== 0;
+          }
+
+          const boardKey = String(COLS);
+          const boardCounts = normalized.boards[boardKey] ? normalizeCountsById(normalized.boards[boardKey].counts) : getDefaultCountsById();
+          for (const piece of PIECES) {
+            const input = inputsById[piece.id];
+            if (input) {
+              input.value = String(clampInt(boardCounts[piece.id], 0, MAX_INPUT));
+            }
+          }
+
+          setStatsCollapsed(!!normalized.global.panel.advancedSettingsCollapsed, false);
+          setAdvancedModeCollapsed(!!normalized.global.panel.advancedPriorityCollapsed, false);
+          setStatsSectionCollapsed(!!normalized.global.panel.statsCollapsed, false);
+        } finally {
+          isApplyingPersistedState = false;
+        }
+      }
+
+      function collectCurrentBoardCounts() {
+        const counts = {};
+        for (const piece of PIECES) {
+          const input = inputsById[piece.id];
+          counts[piece.id] = clampInt(input ? input.value : DEFAULT_COUNTS[piece.id], 0, MAX_INPUT);
+        }
+        return counts;
+      }
+
+      function collectCurrentGlobalState() {
+        return {
+          liveCalculationEnabled: !!liveToggleEl.checked,
+          prioritizeFullBoard: !!(fillPriorityToggleEl && fillPriorityToggleEl.checked),
+          advancedMode: getActiveAdvancedMode(),
+          calcDepth: getActiveCalcDepth(),
+          priorityMask: getSelectedPriorityMask(),
+          panel: {
+            advancedSettingsCollapsed: !!(statsPanelEl && statsPanelEl.classList.contains('collapsed')),
+            advancedPriorityCollapsed: !!(advancedModeSectionEl && advancedModeSectionEl.classList.contains('collapsed')),
+            statsCollapsed: !!(statsSectionEl && statsSectionEl.classList.contains('collapsed'))
+          }
+        };
+      }
+
+      function persistStateNow() {
+        if (isApplyingPersistedState) {
+          return;
+        }
+        if (persistStateTimer) {
+          clearTimeout(persistStateTimer);
+          persistStateTimer = 0;
+        }
+        const current = normalizePersistedAppState(persistedAppState);
+        const boards = { ...current.boards };
+        boards[String(COLS)] = { counts: collectCurrentBoardCounts() };
+        const nextState = normalizePersistedAppState({
+          version: LOCAL_STATE_VERSION,
+          global: collectCurrentGlobalState(),
+          boards
+        });
+        persistedAppState = nextState;
+        try {
+          window.localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(nextState));
+        } catch (error) {
+          // Ignore localStorage write failures (private mode/quota exceeded).
+        }
+      }
+
+      function schedulePersistState() {
+        if (isApplyingPersistedState) {
+          return;
+        }
+        if (persistStateTimer) {
+          clearTimeout(persistStateTimer);
+        }
+        persistStateTimer = window.setTimeout(() => {
+          persistStateTimer = 0;
+          persistStateNow();
+        }, LOCAL_STATE_SAVE_DEBOUNCE_MS);
       }
 
       // ------------------------------
@@ -1570,8 +1941,11 @@
       }
 
       function scheduleVariantRetry(context) {
+        const objective = context && context.fixed && context.fixed.objective ? context.fixed.objective : null;
+        const depthScale = objective && Number.isFinite(objective.calcDepthScale) ? Math.max(1, Number(objective.calcDepthScale)) : 1;
+        const variantAttemptLimit = Math.max(1, Math.floor(VARIANT_MAX_ATTEMPTS * depthScale));
         const nextAttempt = context.variantAttempt + 1;
-        if (nextAttempt >= VARIANT_MAX_ATTEMPTS) {
+        if (nextAttempt >= variantAttemptLimit) {
           isCalculating = false;
           hasPendingChanges = false;
           updateCalcControls();
@@ -1582,7 +1956,7 @@
         isCalculating = false;
         updateCalcControls();
         stopProgressTicker();
-        setStatus(true, 'Searching alternate layout...', `attempt ${nextAttempt + 1}/${VARIANT_MAX_ATTEMPTS}`);
+        setStatus(true, 'Searching alternate layout...', `attempt ${nextAttempt + 1}/${variantAttemptLimit}`);
         solveContextByToken.delete(solveToken);
         startSolve('variant', { fixed: context.fixed, variantAttempt: nextAttempt });
         return true;
@@ -1590,9 +1964,13 @@
 
       function getSolveObjective() {
         const mode = getActiveAdvancedMode();
+        const calcDepth = getActiveCalcDepth();
+        const calcDepthScale = getCalcDepthScale(calcDepth);
         const selectedMask = isComponentPriorityMode(mode) ? getSelectedPriorityMask() : 0;
         return {
           mode,
+          calcDepth,
+          calcDepthScale,
           prioritizeFullBoard: !!(fillPriorityToggleEl && fillPriorityToggleEl.checked),
           selectedMask
         };
@@ -1600,56 +1978,60 @@
 
       function objectiveKey(objective) {
         const mode = objective && typeof objective.mode === 'string' ? objective.mode : ADVANCED_MODE.BALANCED;
+        const calcDepth = objective && typeof objective.calcDepth === 'string' ? objective.calcDepth : CALC_DEPTH.SHORT;
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
-        return `${mode}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}`;
+        return `${mode}|d:${calcDepth}|m:${selectedMask}|f:${prioritizeFullBoard ? 1 : 0}`;
       }
 
       function updateRulesText() {
         if (!rulesEl) return;
         const mode = getActiveAdvancedMode();
+        const calcDepth = getActiveCalcDepth();
         const selectedMask = getSelectedPriorityMask();
         const selectedIds = getSelectedPriorityIds(selectedMask);
         const selectedLabel = selectedIds.length ? selectedIds.join(', ') : 'none selected';
         const prioritizeFullBoard = !!(fillPriorityToggleEl && fillPriorityToggleEl.checked);
+        const depthLabel = calcDepth === CALC_DEPTH.LONG ? 'Long (3x)' : (calcDepth === CALC_DEPTH.MEDIUM ? 'Medium (1.5x)' : 'Short (1x)');
+        updateAdvancedModeWarning(mode, selectedIds, prioritizeFullBoard);
 
         if (mode === ADVANCED_MODE.PREFER_SELECTED) {
           if (!selectedIds.length) {
             if (prioritizeFullBoard) {
-              rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate component preference.';
+              rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Compute depth: <strong>${depthLabel}</strong>. Select at least one priority component to activate component preference.`;
               return;
             }
-            rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate component preference.';
+            rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Compute depth: <strong>${depthLabel}</strong>. Select at least one priority component to activate component preference.`;
             return;
           }
           if (prioritizeFullBoard) {
-            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement.`;
+            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
             return;
           }
-          rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+          rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) usage of selected components (${selectedLabel})</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
           return;
         }
         if (mode === ADVANCED_MODE.STRICT_SELECTED) {
           if (!selectedIds.length) {
             if (prioritizeFullBoard) {
-              rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
+              rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>. Compute depth: <strong>${depthLabel}</strong>. Select at least one priority component to activate strict component prioritization.`;
               return;
             }
-            rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Select at least one priority component to activate strict component prioritization.';
+            rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>. Compute depth: <strong>${depthLabel}</strong>. Select at least one priority component to activate strict component prioritization.`;
             return;
           }
           if (prioritizeFullBoard) {
-            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement.`;
+            rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) fill the entire board (if possible)</strong>, <strong>3) completed horizontal rows</strong>, then tie-break by filled cells, fewer trapped holes, and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
             return;
           }
-          rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.`;
+          rulesEl.innerHTML = `Score priority: <strong>1) usage of selected components (${selectedLabel})</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
           return;
         }
         if (prioritizeFullBoard) {
-          rulesEl.innerHTML = 'Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
+          rulesEl.innerHTML = `Score priority: <strong>1) fill the entire board (if possible)</strong>, <strong>2) completed horizontal rows</strong>, <strong>3) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
           return;
         }
-        rulesEl.innerHTML = 'Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.';
+        rulesEl.innerHTML = `Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement. Compute depth: <strong>${depthLabel}</strong>.`;
       }
 
       function setStatus(searching, text, meta = '') {
@@ -1803,9 +2185,13 @@
             const counts = new Array(PIECES.length).fill(0);
             const variantSeed = Number.isFinite(Number(data.variantSeed)) ? Number(data.variantSeed) : 0;
             const mode = (data.objective && typeof data.objective.mode === 'string') ? data.objective.mode : 'balanced';
+            const calcDepth = (data.objective && typeof data.objective.calcDepth === 'string') ? data.objective.calcDepth : 'short';
+            const calcDepthScaleRaw = Number(data.objective && data.objective.calcDepthScale);
             const selectedMaskRaw = Number(data.objective && data.objective.selectedMask);
             const objective = {
               mode,
+              calcDepth,
+              calcDepthScale: Number.isFinite(calcDepthScaleRaw) && calcDepthScaleRaw > 0 ? calcDepthScaleRaw : 1,
               prioritizeFullBoard: !!(data.objective && data.objective.prioritizeFullBoard),
               selectedMask: Number.isFinite(selectedMaskRaw) ? (selectedMaskRaw | 0) : 0
             };
@@ -1855,13 +2241,24 @@
         const MODE_STRICT_SELECTED = 'strictSelected';
         const rawMode = objective && typeof objective.mode === 'string' ? objective.mode : MODE_BALANCED;
         const mode = [MODE_BALANCED, MODE_PREFER_SELECTED, MODE_STRICT_SELECTED].includes(rawMode) ? rawMode : MODE_BALANCED;
+        const calcDepthScale = objective && Number.isFinite(objective.calcDepthScale) && objective.calcDepthScale > 0
+          ? Number(objective.calcDepthScale)
+          : 1;
         const prioritizeFullBoard = !!(objective && objective.prioritizeFullBoard);
         const selectedMask = objective && Number.isFinite(objective.selectedMask) ? (objective.selectedMask | 0) : 0;
         const useComponentPreference = (mode === MODE_PREFER_SELECTED || mode === MODE_STRICT_SELECTED) && selectedMask !== 0;
-        const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : (prioritizeFullBoard ? 12000000 : 5000000);
-        const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : (prioritizeFullBoard ? 18000 : 10000);
-        const FULL_ONLY_MAX_STATES = limits && Number.isFinite(limits.fullMaxStates) ? Math.max(10000, Math.floor(limits.fullMaxStates)) : 22000000;
-        const FULL_ONLY_MAX_MS = limits && Number.isFinite(limits.fullMaxMs) ? Math.max(100, Math.floor(limits.fullMaxMs)) : 16000;
+        const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates)
+          ? Math.max(10000, Math.floor(Number(limits.maxStates) * calcDepthScale))
+          : Math.max(10000, Math.floor((prioritizeFullBoard ? 12000000 : 5000000) * calcDepthScale));
+        const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs)
+          ? Math.max(100, Math.floor(Number(limits.maxMs) * calcDepthScale))
+          : Math.max(100, Math.floor((prioritizeFullBoard ? 18000 : 10000) * calcDepthScale));
+        const FULL_ONLY_MAX_STATES = limits && Number.isFinite(limits.fullMaxStates)
+          ? Math.max(10000, Math.floor(Number(limits.fullMaxStates) * calcDepthScale))
+          : Math.max(10000, Math.floor(22000000 * calcDepthScale));
+        const FULL_ONLY_MAX_MS = limits && Number.isFinite(limits.fullMaxMs)
+          ? Math.max(100, Math.floor(Number(limits.fullMaxMs) * calcDepthScale))
+          : Math.max(100, Math.floor(16000 * calcDepthScale));
         const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : 45000;
         const CHECK_INTERVAL_MASK = 4095;
         let startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -2439,13 +2836,16 @@
           input.id = `qty-${piece.id}`;
           input.value = String(DEFAULT_COUNTS[piece.id]);
           input.addEventListener('input', () => {
+            schedulePersistState();
             scheduleSolve(false);
           });
           input.addEventListener('blur', () => {
             normalizeInputValue(input);
+            schedulePersistState();
           });
           input.addEventListener('change', () => {
             normalizeInputValue(input);
+            schedulePersistState();
             scheduleSolve(false);
           });
 
@@ -2460,6 +2860,7 @@
           decBtn.addEventListener('click', () => {
             normalizeInputValue(input);
             input.value = String(clampInt(Number(input.value) - 1, 0, MAX_INPUT));
+            schedulePersistState();
             scheduleSolve(false);
           });
 
@@ -2471,6 +2872,7 @@
           incBtn.addEventListener('click', () => {
             normalizeInputValue(input);
             input.value = String(clampInt(Number(input.value) + 1, 0, MAX_INPUT));
+            schedulePersistState();
             scheduleSolve(false);
           });
 
