@@ -21,14 +21,6 @@ Test the project here:
 1. Clone this repository.
 2. Open `index.html` in your browser.
 
-Or serve it with a simple local server:
-
-```bash
-python3 -m http.server 8000
-```
-
-Then open `http://localhost:8000`.
-
 ## Board Width URL Parameter
 
 You can set board width via query param:
