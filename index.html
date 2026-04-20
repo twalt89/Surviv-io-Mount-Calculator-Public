@@ -1,0 +1,2191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Optimal Board Calculator</title>
+  <style>
+    :root {
+      --bg-dark: #131729;
+      --bg-mid: #222741;
+      --panel-top: #d4d7e9;
+      --panel-bottom: #b7bbd1;
+      --panel-border: #0f1120;
+      --title-top: #3a3f59;
+      --title-bottom: #0a0d19;
+      --board-frame: #b9bcdd;
+      --board-cell-empty: #242842;
+      --board-cell-border: #4f5479;
+      --text-dark: #121212;
+      --text-light: #f5f5f5;
+      --accent: #c4c7cd;
+      --ok: #79d28d;
+      --warn: #ffd66f;
+      --a: #9d6dff;
+      --b: #ff8a74;
+      --c: #46a8ff;
+      --d: #71d487;
+      --e: #ff66ad;
+      --row-highlight-top: #efc95c;
+      --row-highlight-bottom: #d2a53a;
+      --cell-size: min(8.2vw, 56px);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-dark);
+      background:
+        linear-gradient(180deg, rgba(140, 149, 206, 0.25) 0 12px, transparent 12px 100%),
+        radial-gradient(circle at 15% 0%, #323a63 0%, transparent 42%),
+        radial-gradient(circle at 90% 20%, #2f365a 0%, transparent 38%),
+        linear-gradient(165deg, var(--bg-mid), var(--bg-dark));
+      display: flex;
+      justify-content: center;
+      padding: 20px 12px 34px;
+    }
+
+    .app {
+      width: min(980px, 100%);
+      display: grid;
+      gap: 14px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title-panel {
+      margin: 0;
+      width: fit-content;
+      padding: 10px 20px;
+      color: var(--text-light);
+      font-size: clamp(1.4rem, 3.5vw, 2.1rem);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border-radius: 12px;
+      border: 2px solid #060607;
+      background: linear-gradient(var(--title-top), var(--title-bottom));
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.75),
+        0 8px 18px rgba(0, 0, 0, 0.38);
+      text-transform: uppercase;
+    }
+
+    .board-width-options {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      border-radius: 12px;
+      border: 2px solid #0f1120;
+      background: linear-gradient(#c5c9de, #a6acce);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .board-width-btn {
+      border: 2px solid rgba(8, 12, 24, 0.8);
+      border-radius: 9px;
+      min-width: 52px;
+      padding: 6px 9px;
+      font-weight: 900;
+      font-size: 0.9rem;
+      color: #ffffff;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+    }
+
+    .board-width-btn:hover {
+      filter: brightness(1.06);
+    }
+
+    .board-width-btn.active {
+      outline: 2px solid #ffffff;
+      outline-offset: 1px;
+      filter: saturate(1.08) brightness(1.04);
+    }
+
+    .board-width-btn[data-cols="7"] {
+      background: linear-gradient(#4d84df, #254f95);
+    }
+
+    .board-width-btn[data-cols="9"] {
+      background: linear-gradient(#9a67eb, #56308f);
+    }
+
+    .board-width-btn[data-cols="12"] {
+      background: linear-gradient(#df5f67, #962b32);
+    }
+
+    .panel {
+      border: 3px solid var(--panel-border);
+      border-radius: 18px;
+      padding: 14px;
+      background: linear-gradient(var(--panel-top), var(--panel-bottom));
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.25),
+        0 10px 24px rgba(0, 0, 0, 0.32);
+    }
+
+    .board-panel {
+      width: fit-content;
+      margin: 0 auto;
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+    }
+
+    .board-shell {
+      padding: 14px;
+      border-radius: 14px;
+      border: 4px solid #1a2345;
+      background: var(--board-frame);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.65),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+    }
+
+    .board-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--board-cols, 7), var(--cell-size));
+      grid-template-rows: repeat(8, var(--cell-size));
+      gap: 3px;
+      padding: 3px;
+      border-radius: 9px;
+      border: 2px solid #203056;
+      background: #6675a3;
+      box-shadow: inset 0 0 0 2px rgba(9, 13, 29, 0.35);
+    }
+
+    .board-cell {
+      position: relative;
+      z-index: 2;
+      border-radius: 5px;
+      border: 1px solid var(--board-cell-border);
+      background: var(--board-cell-empty);
+      transition: background-color 140ms ease, box-shadow 140ms ease;
+    }
+
+    .board-cell.filled {
+      border-color: rgba(21, 24, 40, 0.45);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        inset 0 -10px 20px rgba(23, 26, 40, 0.08);
+    }
+
+    .board-cell.complete-row {
+      border-color: rgba(156, 113, 24, 0.72);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 246, 210, 0.28),
+        0 0 0 1px rgba(255, 226, 141, 0.95),
+        0 0 0 2px rgba(168, 121, 35, 0.62);
+    }
+
+    .board-grid.is-solving .board-cell {
+      animation: boardCellPulse 1.1s ease-in-out infinite;
+    }
+
+    .board-grid.is-solving .board-cell:nth-child(2n) {
+      animation-delay: 0.18s;
+    }
+
+    .board-grid.is-solving .board-cell:nth-child(3n) {
+      animation-delay: 0.32s;
+    }
+
+    .row-highlight-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .row-highlight {
+      position: absolute;
+      border-radius: 6px;
+      background: linear-gradient(var(--row-highlight-top), var(--row-highlight-bottom));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 0 0 1px rgba(130, 90, 18, 0.35);
+      opacity: 0;
+      transition: opacity 140ms ease;
+    }
+
+    .row-highlight.active {
+      opacity: 0.96;
+    }
+
+    .piece-outline-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      overflow: visible;
+    }
+
+    .piece-outline-path {
+      fill: none;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      stroke-width: 4.8px;
+      opacity: 0.98;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .board-solving-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      background:
+        radial-gradient(circle at center, rgba(14, 21, 49, 0.12), rgba(14, 21, 49, 0.48));
+    }
+
+    .board-grid.is-solving .board-solving-overlay {
+      opacity: 1;
+    }
+
+    .board-solving-spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid rgba(199, 214, 255, 0.35);
+      border-top-color: rgba(255, 255, 255, 0.96);
+      animation: spin 0.8s linear infinite;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+    }
+
+    .board-solving-text {
+      font-size: 0.86rem;
+      letter-spacing: 0.02em;
+      font-weight: 800;
+      color: rgba(243, 247, 255, 0.96);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      text-transform: uppercase;
+    }
+
+    .helper {
+      margin: 0;
+      font-weight: 700;
+      color: #25314f;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .controls-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .subhead {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      text-align: center;
+      color: #161719;
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .piece-card {
+      background: linear-gradient(#d0d2d9, #c6c8d1);
+      border: 2px solid #2b2f44;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-height: 198px;
+    }
+
+    .piece-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .swatch {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.45);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+      flex: 0 0 auto;
+    }
+
+    .piece-shape-wrap {
+      min-height: 116px;
+      display: grid;
+      place-items: center;
+    }
+
+    .piece-shape {
+      --shape-cell-size: 24px;
+      display: grid;
+      gap: 4px;
+      width: max-content;
+      filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.2));
+    }
+
+    .piece-shape-cell {
+      width: var(--shape-cell-size);
+      height: var(--shape-cell-size);
+      border-radius: 6px;
+      border: 2px solid rgba(38, 40, 52, 0.45);
+      border-color: rgba(0, 0, 0, 0.35);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+        inset 0 -10px 12px rgba(20, 22, 31, 0.08);
+    }
+
+    .piece-input {
+      display: grid;
+      gap: 4px;
+      justify-items: center;
+    }
+
+    .piece-input label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #34363a;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .piece-input input {
+      width: 84px;
+      border: 2px solid #202226;
+      border-radius: 8px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      text-align: center;
+      padding: 3px 6px;
+      background: #f8f8f9;
+      color: #111;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    .piece-input input::-webkit-outer-spin-button,
+    .piece-input input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .piece-stepper {
+      display: grid;
+      grid-template-columns: 30px 84px 30px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .step-btn {
+      border: 2px solid #1e2025;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      line-height: 1;
+      font-weight: 900;
+      height: 34px;
+      color: #101217;
+      background: linear-gradient(#ffffff, #d9dbde);
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    .step-btn:hover {
+      filter: brightness(1.04);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .calc-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .live-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #1f2947;
+      user-select: none;
+    }
+
+    .live-toggle input {
+      inline-size: 18px;
+      block-size: 18px;
+      accent-color: #3057a8;
+      cursor: pointer;
+    }
+
+    .reset-btn {
+      border: 2px solid #121316;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 8px 14px;
+      color: #f1f1f1;
+      cursor: pointer;
+      background: linear-gradient(#50545b, #24272c);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .reset-btn:hover {
+      filter: brightness(1.06);
+    }
+
+    .calculate-btn {
+      border: 2px solid #121316;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      padding: 8px 14px;
+      color: #f1f1f1;
+      cursor: pointer;
+      background: linear-gradient(#3b67be, #1d3567);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      min-width: 120px;
+    }
+
+    .calculate-btn:hover:not(:disabled) {
+      filter: brightness(1.05);
+    }
+
+    .calculate-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.25);
+    }
+
+    .status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: #1d2025;
+      min-height: 22px;
+      flex-wrap: wrap;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 0, 0, 0.25);
+      border-top-color: rgba(0, 0, 0, 0.8);
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .spinner.active {
+      display: inline-block;
+    }
+
+    .status-meta {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #2f3553;
+      opacity: 0.95;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes boardCellPulse {
+      0%, 100% {
+        filter: brightness(1);
+      }
+      50% {
+        filter: brightness(1.1);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .board-grid.is-solving .board-cell {
+        animation: none;
+      }
+    }
+
+    .stats-panel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .stats-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .stats-panel-title {
+      margin: 0;
+      font-size: 1.02rem;
+      font-weight: 900;
+      color: #1d2340;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+
+    .stats-toggle-btn {
+      border: 2px solid #1d2a4d;
+      border-radius: 10px;
+      background: linear-gradient(#c3d2f0, #98afd7);
+      color: #17233f;
+      font-weight: 800;
+      font-size: 0.86rem;
+      padding: 6px 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+    }
+
+    .stats-toggle-btn:hover {
+      filter: brightness(1.03);
+    }
+
+    .stats-toggle-chevron {
+      font-size: 0.95rem;
+      line-height: 1;
+      transition: transform 140ms ease;
+      transform: rotate(0deg);
+    }
+
+    .stats-panel.collapsed .stats-toggle-chevron {
+      transform: rotate(-90deg);
+    }
+
+    .stats-panel-body {
+      display: grid;
+      gap: 10px;
+    }
+
+    .stats-panel.collapsed .stats-panel-body {
+      display: none;
+    }
+
+    .beta-row {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 2px 2px 0;
+    }
+
+    .rules {
+      margin: 0;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      font-size: 0.93rem;
+      line-height: 1.35;
+      color: #202226;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 8px 14px;
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .stat .label {
+      color: #35383d;
+    }
+
+    .stat .value {
+      color: #141519;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .usage-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(115px, 1fr));
+      gap: 8px;
+    }
+
+    .usage-card {
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      border-radius: 10px;
+      padding: 7px 8px;
+      display: grid;
+      gap: 4px;
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+
+    .usage-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 7px;
+    }
+
+    .usage-lines {
+      color: #23262b;
+      line-height: 1.25;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .note {
+      margin: 0;
+      color: #22252a;
+      font-size: 0.83rem;
+      opacity: 0.92;
+    }
+
+    @media (max-width: 860px) {
+      .inventory-grid {
+        grid-template-columns: repeat(3, minmax(130px, 1fr));
+      }
+
+      .usage-grid {
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+      }
+
+      :root {
+        --cell-size: min(10.1vw, 52px);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .inventory-grid {
+        grid-template-columns: repeat(2, minmax(125px, 1fr));
+      }
+
+      .usage-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      :root {
+        --cell-size: min(11.8vw, 45px);
+      }
+
+      .piece-shape {
+        --shape-cell-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="title-row">
+      <h1 class="title-panel">Optimal Board Calculator</h1>
+      <div class="board-width-options" aria-label="Board width">
+        <button type="button" class="board-width-btn" data-cols="7">7 Wide</button>
+        <button type="button" class="board-width-btn" data-cols="9">9 Wide</button>
+        <button type="button" class="board-width-btn" data-cols="12">12 Wide</button>
+      </div>
+    </div>
+
+    <section class="panel board-panel">
+      <div class="board-shell">
+        <div id="board" class="board-grid" aria-label="7 by 8 board"></div>
+      </div>
+    </section>
+
+    <section class="panel controls-panel">
+      <h2 class="subhead">Pieces</h2>
+      <div id="inventoryGrid" class="inventory-grid"></div>
+
+      <div class="controls-row">
+        <div class="calc-controls">
+          <button id="calculateBtn" class="calculate-btn" type="button">Calculate</button>
+          <button id="resetBtn" class="reset-btn" type="button">Reset Defaults</button>
+        </div>
+        <div class="status-wrap" aria-live="polite">
+          <span id="spinner" class="spinner" aria-hidden="true"></span>
+          <span id="statusText">Ready</span>
+          <span id="statusMeta" class="status-meta"></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="statsPanel" class="panel stats-panel">
+      <div class="stats-panel-head">
+        <h3 class="stats-panel-title">Stats &amp; Solver</h3>
+        <button id="statsToggleBtn" class="stats-toggle-btn" type="button" aria-expanded="true" aria-controls="statsPanelBody">
+          <span class="stats-toggle-label">Collapse</span>
+          <span class="stats-toggle-chevron" aria-hidden="true">▾</span>
+        </button>
+      </div>
+
+      <div id="statsPanelBody" class="stats-panel-body">
+        <div class="beta-row">
+          <label class="live-toggle" for="liveToggle">
+            <input id="liveToggle" type="checkbox" />
+            <span>Live calculation (Beta)</span>
+          </label>
+        </div>
+        <p class="rules">
+          Score priority: <strong>1) completed horizontal rows</strong>, <strong>2) filled cells</strong>, then tie-break by fewer trapped holes and a more bottom-compact placement.
+        </p>
+
+        <div class="stats-grid">
+          <div class="stat"><span class="label">Lines completed</span><span id="statLines" class="value">0</span></div>
+          <div class="stat"><span class="label">Cells filled</span><span id="statFilled" class="value">0</span></div>
+          <div class="stat"><span class="label">Cells empty</span><span id="statEmpty" class="value">56</span></div>
+          <div class="stat"><span class="label">Placements searched</span><span id="statPlacements" class="value">0</span></div>
+          <div class="stat"><span class="label">States searched</span><span id="statStates" class="value">0</span></div>
+          <div class="stat"><span class="label">Solve time (ms)</span><span id="statSolveMs" class="value">0.00</span></div>
+        </div>
+
+        <div id="usageGrid" class="usage-grid"></div>
+        <p class="note">Reflections are not used; only unique rotations of each piece are considered.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ------------------------------
+      // Piece definitions and rotations
+      // ------------------------------
+      const BOARD_WIDTH_OPTIONS = [7, 9, 12];
+      const params = new URLSearchParams(window.location.search);
+      const requestedCols = Number(params.get('w'));
+      const COLS = BOARD_WIDTH_OPTIONS.includes(requestedCols) ? requestedCols : 7;
+      const ROWS = 8;
+      const CELLS = COLS * ROWS;
+      const PIECE_SIZE = 4;
+      const MAX_INPUT = 20;
+      const MAX_USABLE_PIECES = CELLS / PIECE_SIZE;
+      const INPUT_DEBOUNCE_MS = 420;
+      const WORKER_RETRY_LIMIT = 1;
+      const DEFAULT_COUNTS = { A: 3, B: 2, C: 4, D: 2, E: 3 };
+
+      const PIECES = [
+        { id: 'A', name: 'Piece A', color: getCssVar('--a'), cells: [[0,0],[0,1],[0,2],[1,1]] },
+        { id: 'B', name: 'Piece B', color: getCssVar('--b'), cells: [[0,0],[0,1],[0,2],[1,0]] },
+        { id: 'C', name: 'Piece C', color: getCssVar('--c'), cells: [[0,0],[1,0],[0,1],[1,1]] },
+        { id: 'D', name: 'Piece D', color: getCssVar('--d'), cells: [[0,0],[1,0],[1,1],[1,2]] },
+        { id: 'E', name: 'Piece E', color: getCssVar('--e'), cells: [[0,0],[0,1],[0,2],[0,3]] }
+      ];
+      for (const piece of PIECES) {
+        piece.outline = darkenHexToRgba(piece.color, 0.15, 0.98);
+      }
+      let BIT_MASKS = null;
+      let FULL_MASK = 0n;
+      let PREFIX_MASKS = null;
+      let SUFFIX_MASKS = null;
+      let rotationsByPiece = null;
+      let placements = null;
+      let placementsByAnchor = null;
+
+      // ------------------------------
+      // Rendering setup
+      // ------------------------------
+      const boardEl = document.getElementById('board');
+      const boardWidthBtns = Array.from(document.querySelectorAll('.board-width-btn'));
+      const inventoryGridEl = document.getElementById('inventoryGrid');
+      const usageGridEl = document.getElementById('usageGrid');
+      const statsPanelEl = document.getElementById('statsPanel');
+      const statsToggleBtnEl = document.getElementById('statsToggleBtn');
+      const spinnerEl = document.getElementById('spinner');
+      const statusTextEl = document.getElementById('statusText');
+      const statusMetaEl = document.getElementById('statusMeta');
+      const liveToggleEl = document.getElementById('liveToggle');
+      const calculateBtnEl = document.getElementById('calculateBtn');
+      const resetBtnEl = document.getElementById('resetBtn');
+
+      const statEls = {
+        lines: document.getElementById('statLines'),
+        filled: document.getElementById('statFilled'),
+        empty: document.getElementById('statEmpty'),
+        placements: document.getElementById('statPlacements'),
+        states: document.getElementById('statStates'),
+        solveMs: document.getElementById('statSolveMs')
+      };
+
+      const boardCells = [];
+      const inputsById = {};
+      const usageCardsById = {};
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const rowHighlightEls = [];
+      let rowHighlightLayer = null;
+      let pieceOutlineLayer = null;
+      let boardLoadingTextEl = null;
+      let lastRenderedResult = null;
+
+      initializeBoardSizeUi();
+      createBoardCells();
+      createInventoryControls();
+      createUsageCards();
+
+      let solveDebounceTimer = null;
+      let solveToken = 0;
+      const resultCache = new Map();
+      let resizeRaf = 0;
+      let liveCalculationEnabled = false;
+      let isCalculating = false;
+      let hasPendingChanges = false;
+      let solverWorker = null;
+      let activeWorkerRequestId = 0;
+      let solverWorkerSourceCache = '';
+      let solverWorkerScriptUrl = '';
+      const workerSupported = typeof Worker !== 'undefined';
+      let solveStartedAt = 0;
+      let progressTimerId = 0;
+      liveToggleEl.checked = false;
+      setStatsCollapsed(true);
+
+      window.addEventListener('resize', () => {
+        if (!lastRenderedResult || resizeRaf) return;
+        resizeRaf = requestAnimationFrame(() => {
+          resizeRaf = 0;
+          updateRowHighlights(getCompleteRows(lastRenderedResult.board));
+          drawPieceOutlines(lastRenderedResult.board, lastRenderedResult.boardInstance);
+        });
+      });
+      window.addEventListener('beforeunload', () => {
+        if (solverWorkerScriptUrl) {
+          URL.revokeObjectURL(solverWorkerScriptUrl);
+          solverWorkerScriptUrl = '';
+        }
+      });
+
+      statsToggleBtnEl.addEventListener('click', () => {
+        setStatsCollapsed(!statsPanelEl.classList.contains('collapsed'));
+      });
+
+      resetBtnEl.addEventListener('click', () => {
+        for (const piece of PIECES) {
+          inputsById[piece.id].value = DEFAULT_COUNTS[piece.id];
+        }
+        scheduleSolve(false);
+      });
+
+      liveToggleEl.addEventListener('change', () => {
+        liveCalculationEnabled = liveToggleEl.checked;
+        if (!liveCalculationEnabled) {
+          cancelCurrentSolve('Manual mode: press Calculate');
+          hasPendingChanges = true;
+          setStatus(false, 'Manual mode: press Calculate');
+        } else if (hasPendingChanges) {
+          scheduleSolve(true);
+        } else {
+          setStatus(false, 'Live mode enabled');
+        }
+        updateCalcControls();
+      });
+
+      calculateBtnEl.addEventListener('click', () => {
+        startSolve('manual');
+      });
+
+      setStatus(false, 'Manual mode: press Calculate');
+      updateCalcControls();
+
+      function initializeBoardSizeUi() {
+        boardEl.style.setProperty('--board-cols', String(COLS));
+        boardEl.setAttribute('aria-label', `${COLS} by ${ROWS} board`);
+        for (const btn of boardWidthBtns) {
+          const cols = Number(btn.dataset.cols || '7');
+          const active = cols === COLS;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+          btn.addEventListener('click', () => {
+            if (cols === COLS) {
+              return;
+            }
+            const next = new URL(window.location.href);
+            next.searchParams.set('w', String(cols));
+            window.location.href = next.toString();
+          });
+        }
+      }
+
+      function setStatsCollapsed(collapsed) {
+        statsPanelEl.classList.toggle('collapsed', collapsed);
+        statsToggleBtnEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        const label = statsToggleBtnEl.querySelector('.stats-toggle-label');
+        if (label) {
+          label.textContent = collapsed ? 'Expand' : 'Collapse';
+        }
+      }
+
+      // ------------------------------
+      // Input handling
+      // ------------------------------
+      function scheduleSolve(immediate = false) {
+        hasPendingChanges = true;
+        updateCalcControls();
+
+        if (!liveCalculationEnabled) {
+          if (isCalculating) {
+            setStatus(true, 'Calculating best layout...', 'Inputs changed. Press Calculate to restart.');
+          } else {
+            setStatus(false, 'Manual mode: press Calculate');
+          }
+          return;
+        }
+
+        if (isCalculating) {
+          cancelCurrentSolve('Updating inputs...');
+        }
+
+        if (solveDebounceTimer) {
+          clearTimeout(solveDebounceTimer);
+          solveDebounceTimer = null;
+        }
+
+        if (immediate) {
+          startSolve('auto');
+          return;
+        }
+
+        setStatus(false, 'Waiting for input...');
+        solveDebounceTimer = setTimeout(() => startSolve('auto'), INPUT_DEBOUNCE_MS);
+      }
+
+      function getCountsFromInputs() {
+        return PIECES.map((piece) => clampInt(inputsById[piece.id].value, 0, MAX_INPUT));
+      }
+
+      function startSolve(mode = 'auto') {
+        const isManualTrigger = mode === 'manual';
+        if (!liveCalculationEnabled && !isManualTrigger) {
+          return;
+        }
+
+        if (solveDebounceTimer) {
+          clearTimeout(solveDebounceTimer);
+          solveDebounceTimer = null;
+        }
+
+        if (isCalculating) {
+          cancelCurrentSolve('Canceled previous calculation. Recalculating...');
+        }
+
+        isCalculating = true;
+        updateCalcControls();
+
+        const token = ++solveToken;
+        const inputCounts = getCountsFromInputs();
+        const solverCounts = getSolverCounts(inputCounts);
+        const cacheKey = solverCounts.join(',');
+
+        if (resultCache.has(cacheKey)) {
+          const cached = resultCache.get(cacheKey);
+          renderResult({
+            ...cached,
+            solveMs: 0,
+            unused: inputCounts.map((v, i) => v - cached.used[i])
+          });
+          hasPendingChanges = false;
+          isCalculating = false;
+          updateCalcControls();
+          setStatus(false, cached.timedOut ? 'Solved (cached, time-limited)' : 'Solved (cached)');
+          return;
+        }
+
+        setStatus(true, 'Calculating best layout...');
+        solveStartedAt = performance.now();
+        startProgressTicker();
+        const started = solveStartedAt;
+
+        if (!workerSupported) {
+          setStatus(true, 'Web Worker unavailable. Calculating on main thread...');
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, started);
+          return;
+        }
+
+        runSolveInWorker(token, inputCounts, solverCounts, cacheKey, started, 0);
+      }
+
+      function runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount) {
+        if (token !== solveToken) {
+          return;
+        }
+
+        try {
+          const workerRequestId = ++activeWorkerRequestId;
+          destroySolverWorker();
+          solverWorker = createSolverWorker();
+
+          solverWorker.onmessage = (event) => {
+            const payload = event.data || {};
+            if (payload.requestId !== workerRequestId || token !== solveToken) {
+              return;
+            }
+            if (payload.type === 'progress') {
+              updateProgressStatus(payload.statesSearched || 0, payload.placementsSearched || 0);
+              return;
+            }
+            if (payload.type === 'error') {
+              destroySolverWorker();
+              if (retryCount < WORKER_RETRY_LIMIT) {
+                setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
+                runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+                return;
+              }
+              const reason = payload.message ? String(payload.message) : 'worker error';
+              setStatus(true, 'Worker failed. Using compatibility solver...', reason);
+              solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+              return;
+            }
+            if (payload.type === 'result') {
+              finalizeSolve(token, inputCounts, cacheKey, startedAt, payload.result);
+            }
+          };
+
+          solverWorker.onerror = (event) => {
+            if (token !== solveToken) {
+              return;
+            }
+            destroySolverWorker();
+            const crashMeta = [
+              event && event.message ? String(event.message) : '',
+              event && Number.isFinite(event.lineno) ? `line ${event.lineno}` : '',
+              event && Number.isFinite(event.colno) ? `col ${event.colno}` : ''
+            ].filter(Boolean).join(', ') || 'worker crashed';
+            if (retryCount < WORKER_RETRY_LIMIT) {
+              setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
+              runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+              return;
+            }
+            setStatus(true, 'Worker failed. Using compatibility solver...', crashMeta);
+            solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+          };
+
+          solverWorker.postMessage({
+            type: 'solve',
+            requestId: workerRequestId,
+            counts: solverCounts
+          });
+        } catch (error) {
+          if (token !== solveToken) {
+            return;
+          }
+          destroySolverWorker();
+          if (retryCount < WORKER_RETRY_LIMIT) {
+            setStatus(true, 'Solver worker restarted...', `retry ${retryCount + 1}`);
+            runSolveInWorker(token, inputCounts, solverCounts, cacheKey, startedAt, retryCount + 1);
+            return;
+          }
+          setStatus(true, 'Worker failed. Using compatibility solver...', 'worker unavailable');
+          solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, true);
+        }
+      }
+
+      function solveOnMainThread(token, inputCounts, solverCounts, cacheKey, startedAt, compatibilityMode = false) {
+        requestAnimationFrame(() => {
+          if (token !== solveToken) {
+            return;
+          }
+          try {
+            ensureMainSolverRuntime();
+            const result = solveOptimalLayout(
+              solverCounts,
+              null,
+              compatibilityMode
+                ? { maxStates: 900000, maxMs: 1200, progressEvery: 30000 }
+                : { maxStates: 3000000, maxMs: 7000, progressEvery: 45000 }
+            );
+            finalizeSolve(token, inputCounts, cacheKey, startedAt, result);
+          } catch (error) {
+            if (token !== solveToken) {
+              return;
+            }
+            isCalculating = false;
+            hasPendingChanges = true;
+            updateCalcControls();
+            stopProgressTicker();
+            setStatus(false, 'Calculation failed. Try again.', compatibilityMode ? 'compatibility mode failed' : '');
+          }
+        });
+      }
+
+      function finalizeSolve(token, inputCounts, cacheKey, startedAt, result) {
+        if (token !== solveToken) {
+          return;
+        }
+
+        const ended = performance.now();
+        result.solveMs = ended - startedAt;
+        result.unused = inputCounts.map((v, i) => v - result.used[i]);
+        resultCache.set(cacheKey, { ...result, solveMs: 0 });
+        renderResult(result);
+        isCalculating = false;
+        hasPendingChanges = false;
+        updateCalcControls();
+        stopProgressTicker();
+        setStatus(false, result.timedOut ? 'Solved (time-limited)' : 'Solved');
+        destroySolverWorker();
+      }
+
+      function setStatus(searching, text, meta = '') {
+        spinnerEl.classList.toggle('active', searching);
+        boardEl.classList.toggle('is-solving', searching);
+        if (boardLoadingTextEl) {
+          boardLoadingTextEl.textContent = searching ? 'Calculating...' : '';
+        }
+        statusTextEl.textContent = text;
+        statusMetaEl.textContent = meta;
+      }
+
+      function cancelAutoCalculation() {
+        if (solveDebounceTimer) {
+          clearTimeout(solveDebounceTimer);
+          solveDebounceTimer = null;
+        }
+        destroySolverWorker();
+        // Invalidate any stale async callbacks.
+        solveToken++;
+        isCalculating = false;
+        stopProgressTicker();
+      }
+
+      function cancelCurrentSolve(statusText) {
+        cancelAutoCalculation();
+        hasPendingChanges = true;
+        updateCalcControls();
+        setStatus(false, statusText || 'Calculation canceled');
+      }
+
+      function updateCalcControls() {
+        calculateBtnEl.textContent = isCalculating ? 'Cancel & Recalculate' : 'Calculate';
+        calculateBtnEl.disabled = false;
+      }
+
+      function startProgressTicker() {
+        stopProgressTicker();
+        progressTimerId = window.setInterval(() => {
+          if (!isCalculating) {
+            stopProgressTicker();
+            return;
+          }
+          const elapsed = Math.max(0, (performance.now() - solveStartedAt) / 1000);
+          setStatus(true, 'Calculating best layout...', `elapsed ${elapsed.toFixed(1)}s`);
+        }, 300);
+      }
+
+      function stopProgressTicker() {
+        if (!progressTimerId) {
+          return;
+        }
+        clearInterval(progressTimerId);
+        progressTimerId = 0;
+      }
+
+      function updateProgressStatus(statesSearched, placementsSearched) {
+        const elapsed = Math.max(0, (performance.now() - solveStartedAt) / 1000);
+        const statesText = numberFmt(statesSearched);
+        const placementsText = numberFmt(placementsSearched);
+        setStatus(true, 'Calculating best layout...', `${statesText} states, ${placementsText} placements, ${elapsed.toFixed(1)}s`);
+      }
+
+      function ensureMainSolverRuntime() {
+        if (BIT_MASKS) {
+          return;
+        }
+
+        BIT_MASKS = Array.from({ length: CELLS }, (_, i) => 1n << BigInt(i));
+        FULL_MASK = (1n << BigInt(CELLS)) - 1n;
+        PREFIX_MASKS = Array.from({ length: CELLS + 1 }, () => 0n);
+        SUFFIX_MASKS = Array.from({ length: CELLS + 1 }, () => 0n);
+        for (let i = 1; i <= CELLS; i++) {
+          PREFIX_MASKS[i] = PREFIX_MASKS[i - 1] | BIT_MASKS[i - 1];
+        }
+        for (let i = 0; i <= CELLS; i++) {
+          SUFFIX_MASKS[i] = FULL_MASK ^ PREFIX_MASKS[i];
+        }
+
+        rotationsByPiece = PIECES.map((piece) => getUniqueRotations(piece.cells));
+        placements = [];
+        placementsByAnchor = Array.from({ length: CELLS }, () =>
+          Array.from({ length: PIECES.length }, () => [])
+        );
+        precomputePlacements();
+      }
+
+      function destroySolverWorker() {
+        if (!solverWorker) {
+          return;
+        }
+        solverWorker.terminate();
+        solverWorker = null;
+      }
+
+      function createSolverWorker() {
+        if (!solverWorkerScriptUrl) {
+          const workerSource = getSolverWorkerSource();
+          const blob = new Blob([workerSource], { type: 'text/javascript' });
+          solverWorkerScriptUrl = URL.createObjectURL(blob);
+        }
+        return new Worker(solverWorkerScriptUrl);
+      }
+
+      function getSolverWorkerSource() {
+        if (solverWorkerSourceCache) {
+          return solverWorkerSourceCache;
+        }
+
+        const workerPieces = PIECES.map((piece) => ({ id: piece.id, cells: piece.cells }));
+        const parts = [];
+
+        parts.push('(() => {');
+        parts.push('\"use strict\";');
+        parts.push(`const COLS = ${COLS};`);
+        parts.push(`const ROWS = ${ROWS};`);
+        parts.push(`const CELLS = ${CELLS};`);
+        parts.push(`const PIECE_SIZE = ${PIECE_SIZE};`);
+        parts.push(`const MAX_USABLE_PIECES = ${MAX_USABLE_PIECES};`);
+        parts.push(`const PIECES = ${JSON.stringify(workerPieces)};`);
+        parts.push('const BIT_MASKS = Array.from({ length: CELLS }, (_, i) => 1n << BigInt(i));');
+        parts.push('const FULL_MASK = (1n << BigInt(CELLS)) - 1n;');
+        parts.push('const PREFIX_MASKS = Array.from({ length: CELLS + 1 }, () => 0n);');
+        parts.push('const SUFFIX_MASKS = Array.from({ length: CELLS + 1 }, () => 0n);');
+        parts.push('for (let i = 1; i <= CELLS; i++) { PREFIX_MASKS[i] = PREFIX_MASKS[i - 1] | BIT_MASKS[i - 1]; }');
+        parts.push('for (let i = 0; i <= CELLS; i++) { SUFFIX_MASKS[i] = FULL_MASK ^ PREFIX_MASKS[i]; }');
+        parts.push('const rotationsByPiece = PIECES.map((piece) => getUniqueRotations(piece.cells));');
+        parts.push('const placements = [];');
+        parts.push('const placementsByAnchor = Array.from({ length: CELLS }, () => Array.from({ length: PIECES.length }, () => []));');
+        parts.push('let initialized = false;');
+        parts.push(normalizeCells.toString());
+        parts.push(getUniqueRotations.toString());
+        parts.push(precomputePlacements.toString());
+        parts.push(canStillBeatBest.toString());
+        parts.push(getOptimisticBounds.toString());
+        parts.push(countHoles.toString());
+        parts.push(boardSignature.toString());
+        parts.push(popcount32.toString());
+        parts.push(popcount56.toString());
+        parts.push(solveOptimalLayout.toString());
+        parts.push('function ensureInitialized() { if (initialized) return; precomputePlacements(); initialized = true; }');
+        parts.push(`self.onmessage = (event) => {
+          const data = event.data || {};
+          if (data.type !== 'solve') {
+            return;
+          }
+          try {
+            ensureInitialized();
+            const rawCounts = Array.isArray(data.counts) ? data.counts : [];
+            const counts = new Array(PIECES.length).fill(0);
+            for (let i = 0; i < PIECES.length; i++) {
+              const value = Number(rawCounts[i] || 0);
+              const safe = Number.isFinite(value) ? Math.floor(value) : 0;
+              counts[i] = Math.max(0, Math.min(MAX_USABLE_PIECES, safe));
+            }
+            const result = solveOptimalLayout(counts, (statesSearched, placementsSearched) => {
+              self.postMessage({
+                type: 'progress',
+                requestId: data.requestId,
+                statesSearched,
+                placementsSearched
+              });
+            });
+            self.postMessage({
+              type: 'result',
+              requestId: data.requestId,
+              result: {
+                ...result,
+                board: Array.from(result.board),
+                boardInstance: Array.from(result.boardInstance),
+                used: Array.from(result.used)
+              }
+            });
+          } catch (err) {
+            self.postMessage({
+              type: 'error',
+              requestId: data.requestId,
+              message: err && err.message ? err.message : 'Worker solve failed'
+            });
+          }
+        };`);
+        parts.push('})();');
+
+        solverWorkerSourceCache = parts.join('\\n');
+        return solverWorkerSourceCache;
+      }
+
+      // ------------------------------
+      // Solver
+      // ------------------------------
+      function solveOptimalLayout(initialCounts, progressCallback = null, limits = null) {
+        const MAX_SEARCH_STATES_LOCAL = limits && Number.isFinite(limits.maxStates) ? Math.max(10000, Math.floor(limits.maxStates)) : 3000000;
+        const MAX_SOLVE_MS_LOCAL = limits && Number.isFinite(limits.maxMs) ? Math.max(100, Math.floor(limits.maxMs)) : 7000;
+        const PROGRESS_EVERY = limits && Number.isFinite(limits.progressEvery) ? Math.max(1000, Math.floor(limits.progressEvery)) : 45000;
+        const CHECK_INTERVAL_MASK = 4095;
+        const startedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+        const counts = initialCounts.slice();
+        const used = new Uint8Array(PIECES.length);
+        const rowFill = new Uint8Array(ROWS);
+        const boardType = new Int8Array(CELLS);
+        const boardInstance = new Int32Array(CELLS);
+        boardType.fill(-1);
+        boardInstance.fill(-1);
+
+        const seenStates = new Set();
+
+        let remainingPieces = counts.reduce((sum, v) => sum + v, 0);
+        let statesSearched = 0;
+        let placementsSearched = 0;
+        let foundPerfect = false;
+        let timedOut = false;
+        let lastProgressReport = 0;
+
+        const best = {
+          lines: -1,
+          filled: -1,
+          holes: Number.POSITIVE_INFINITY,
+          bottomCompact: Number.NEGATIVE_INFINITY,
+          signature: '~',
+          board: new Int8Array(CELLS).fill(-1),
+          boardInstance: new Int32Array(CELLS).fill(-1),
+          used: new Array(PIECES.length).fill(0)
+        };
+
+        function dfs(index, occMask, rowDeadMask, filled, linesComplete, bottomCompact) {
+          if (foundPerfect || timedOut) {
+            return;
+          }
+
+          while (index < CELLS && (occMask & BIT_MASKS[index])) {
+            index++;
+          }
+
+          statesSearched++;
+          if ((statesSearched & CHECK_INTERVAL_MASK) === 0) {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            if (statesSearched >= MAX_SEARCH_STATES_LOCAL || (now - startedAt) >= MAX_SOLVE_MS_LOCAL) {
+              timedOut = true;
+              return;
+            }
+          }
+
+          if (progressCallback && statesSearched - lastProgressReport >= PROGRESS_EVERY) {
+            lastProgressReport = statesSearched;
+            progressCallback(statesSearched, placementsSearched);
+          }
+
+          const bounds = getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces);
+          if (!canStillBeatBest(bounds.upperLines, bounds.upperFilled, best)) {
+            return;
+          }
+
+          const key = `${index}|${rowDeadMask}|${counts.join(',')}|${occMask.toString(36)}`;
+          if (seenStates.has(key)) {
+            return;
+          }
+          seenStates.add(key);
+
+          if (index >= CELLS || remainingPieces === 0) {
+            evaluateCandidate(occMask, linesComplete, filled, bottomCompact);
+            return;
+          }
+
+          const moves = [];
+
+          for (let t = 0; t < PIECES.length; t++) {
+            if (counts[t] <= 0) {
+              continue;
+            }
+
+            const anchorPlacements = placementsByAnchor[index][t];
+            for (let i = 0; i < anchorPlacements.length; i++) {
+              const p = anchorPlacements[i];
+              if ((p.mask & occMask) !== 0n) {
+                continue;
+              }
+
+              placementsSearched++;
+
+              let lineGain = 0;
+              let nearFill = 0;
+              let touchesDeadRows = 0;
+
+              for (let j = 0; j < p.rowAdds.length; j++) {
+                const row = p.rowAdds[j][0];
+                const add = p.rowAdds[j][1];
+                const next = rowFill[row] + add;
+                nearFill += next;
+                if (next === COLS) {
+                  lineGain++;
+                }
+                if ((rowDeadMask & (1 << row)) !== 0) {
+                  touchesDeadRows++;
+                }
+              }
+
+              moves.push({
+                pieceType: t,
+                placement: p,
+                lineGain,
+                nearFill,
+                touchesDeadRows,
+                scarcity: counts[t]
+              });
+            }
+          }
+
+          if (moves.length > 1) {
+            moves.sort((a, b) => {
+              if (b.lineGain !== a.lineGain) return b.lineGain - a.lineGain;
+              if (a.touchesDeadRows !== b.touchesDeadRows) return a.touchesDeadRows - b.touchesDeadRows;
+              if (b.nearFill !== a.nearFill) return b.nearFill - a.nearFill;
+              if (b.placement.bottomSum !== a.placement.bottomSum) return b.placement.bottomSum - a.placement.bottomSum;
+              if (a.scarcity !== b.scarcity) return a.scarcity - b.scarcity;
+              if (a.pieceType !== b.pieceType) return a.pieceType - b.pieceType;
+              return a.placement.id - b.placement.id;
+            });
+          }
+
+          for (let m = 0; m < moves.length; m++) {
+            const { pieceType, placement } = moves[m];
+
+            counts[pieceType]--;
+            used[pieceType]++;
+            remainingPieces--;
+
+            let gainedLines = 0;
+            for (let j = 0; j < placement.rowAdds.length; j++) {
+              const row = placement.rowAdds[j][0];
+              const add = placement.rowAdds[j][1];
+              const prev = rowFill[row];
+              const next = prev + add;
+              rowFill[row] = next;
+              if (prev < COLS && next === COLS) {
+                gainedLines++;
+              }
+            }
+
+            for (let c = 0; c < placement.cells.length; c++) {
+              boardType[placement.cells[c]] = pieceType;
+              boardInstance[placement.cells[c]] = placement.id;
+            }
+
+            dfs(
+              index + 1,
+              occMask | placement.mask,
+              rowDeadMask,
+              filled + PIECE_SIZE,
+              linesComplete + gainedLines,
+              bottomCompact + placement.bottomSum
+            );
+
+            for (let c = 0; c < placement.cells.length; c++) {
+              boardType[placement.cells[c]] = -1;
+              boardInstance[placement.cells[c]] = -1;
+            }
+
+            for (let j = 0; j < placement.rowAdds.length; j++) {
+              const row = placement.rowAdds[j][0];
+              const add = placement.rowAdds[j][1];
+              rowFill[row] -= add;
+            }
+
+            counts[pieceType]++;
+            used[pieceType]--;
+            remainingPieces++;
+          }
+
+          // Skip this cell: it becomes a fixed empty cell.
+          const row = Math.floor(index / COLS);
+          const nextDeadMask = rowFill[row] < COLS ? (rowDeadMask | (1 << row)) : rowDeadMask;
+          dfs(index + 1, occMask, nextDeadMask, filled, linesComplete, bottomCompact);
+        }
+
+        function evaluateCandidate(occMask, lines, filled, bottomCompact) {
+          if (lines < best.lines || (lines === best.lines && filled < best.filled)) {
+            return;
+          }
+
+          const holes = countHoles(occMask);
+          let signature = best.signature;
+
+          if (lines === best.lines && filled === best.filled) {
+            if (holes > best.holes || (holes === best.holes && bottomCompact < best.bottomCompact)) {
+              return;
+            }
+            if (holes === best.holes && bottomCompact === best.bottomCompact) {
+              signature = boardSignature(boardType);
+              if (signature >= best.signature) {
+                return;
+              }
+            }
+          }
+
+          if (lines > best.lines || filled > best.filled) {
+            signature = boardSignature(boardType);
+          }
+
+          best.lines = lines;
+          best.filled = filled;
+          best.holes = holes;
+          best.bottomCompact = bottomCompact;
+          best.signature = signature;
+          best.board = Int8Array.from(boardType);
+          best.boardInstance = Int32Array.from(boardInstance);
+          best.used = Array.from(used);
+
+          if (lines === ROWS && filled === CELLS) {
+            foundPerfect = true;
+          }
+        }
+
+        dfs(0, 0n, 0, 0, 0, 0);
+
+        if (best.lines < 0) {
+          best.lines = 0;
+          best.filled = 0;
+          best.holes = 0;
+          best.bottomCompact = 0;
+        }
+
+        return {
+          lines: best.lines,
+          filled: best.filled,
+          empty: CELLS - best.filled,
+          holes: best.holes,
+          bottomCompact: best.bottomCompact,
+          timedOut,
+          board: best.board,
+          boardInstance: best.boardInstance,
+          used: best.used,
+          placementsSearched,
+          statesSearched,
+          solveMs: 0
+        };
+      }
+
+      // ------------------------------
+      // Rendering
+      // ------------------------------
+      function renderResult(result) {
+        const completeRows = getCompleteRows(result.board);
+
+        for (let i = 0; i < CELLS; i++) {
+          const cellEl = boardCells[i];
+          const t = result.board[i];
+          const row = Math.floor(i / COLS);
+          const complete = completeRows.has(row);
+
+          cellEl.classList.toggle('filled', t >= 0);
+          cellEl.classList.toggle('complete-row', complete);
+          cellEl.style.backgroundColor = t >= 0 ? PIECES[t].color : getCssVar('--board-cell-empty');
+          cellEl.title = t >= 0 ? `${PIECES[t].name} (${PIECES[t].id})` : 'Empty';
+        }
+
+        updateRowHighlights(completeRows);
+        drawPieceOutlines(result.board, result.boardInstance);
+        lastRenderedResult = result;
+
+        statEls.lines.textContent = String(result.lines);
+        statEls.filled.textContent = String(result.filled);
+        statEls.empty.textContent = String(result.empty);
+        statEls.placements.textContent = numberFmt(result.placementsSearched);
+        statEls.states.textContent = numberFmt(result.statesSearched);
+        statEls.solveMs.textContent = result.solveMs.toFixed(2);
+
+        for (let i = 0; i < PIECES.length; i++) {
+          const piece = PIECES[i];
+          const card = usageCardsById[piece.id];
+          card.querySelector('.used-val').textContent = String(result.used[i]);
+          card.querySelector('.unused-val').textContent = String(result.unused[i]);
+        }
+      }
+
+      function createBoardCells() {
+        rowHighlightLayer = document.createElement('div');
+        rowHighlightLayer.className = 'row-highlight-layer';
+        for (let r = 0; r < ROWS; r++) {
+          const rowEl = document.createElement('div');
+          rowEl.className = 'row-highlight';
+          rowHighlightEls.push(rowEl);
+          rowHighlightLayer.appendChild(rowEl);
+        }
+        boardEl.appendChild(rowHighlightLayer);
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < CELLS; i++) {
+          const div = document.createElement('div');
+          div.className = 'board-cell';
+          boardCells.push(div);
+          frag.appendChild(div);
+        }
+        boardEl.appendChild(frag);
+
+        pieceOutlineLayer = document.createElementNS(SVG_NS, 'svg');
+        pieceOutlineLayer.classList.add('piece-outline-layer');
+        pieceOutlineLayer.setAttribute('aria-hidden', 'true');
+        boardEl.appendChild(pieceOutlineLayer);
+
+        const solvingOverlay = document.createElement('div');
+        solvingOverlay.className = 'board-solving-overlay';
+        solvingOverlay.setAttribute('aria-hidden', 'true');
+
+        const solvingSpinner = document.createElement('span');
+        solvingSpinner.className = 'board-solving-spinner';
+        solvingOverlay.appendChild(solvingSpinner);
+
+        boardLoadingTextEl = document.createElement('span');
+        boardLoadingTextEl.className = 'board-solving-text';
+        boardLoadingTextEl.textContent = '';
+        solvingOverlay.appendChild(boardLoadingTextEl);
+
+        boardEl.appendChild(solvingOverlay);
+      }
+
+      function createInventoryControls() {
+        for (const piece of PIECES) {
+          const card = document.createElement('div');
+          card.className = 'piece-card';
+
+          const shapeWrap = document.createElement('div');
+          shapeWrap.className = 'piece-shape-wrap';
+          renderPieceShape(shapeWrap, piece.cells, piece.color);
+
+          const inputWrap = document.createElement('div');
+          inputWrap.className = 'piece-input';
+
+          const label = document.createElement('label');
+          label.setAttribute('for', `qty-${piece.id}`);
+          label.textContent = 'Quantity';
+
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.min = '0';
+          input.max = String(MAX_INPUT);
+          input.step = '1';
+          input.id = `qty-${piece.id}`;
+          input.value = String(DEFAULT_COUNTS[piece.id]);
+          input.addEventListener('input', () => {
+            scheduleSolve(false);
+          });
+          input.addEventListener('blur', () => {
+            normalizeInputValue(input);
+          });
+          input.addEventListener('change', () => {
+            normalizeInputValue(input);
+            scheduleSolve(false);
+          });
+
+          const stepper = document.createElement('div');
+          stepper.className = 'piece-stepper';
+
+          const decBtn = document.createElement('button');
+          decBtn.type = 'button';
+          decBtn.className = 'step-btn';
+          decBtn.setAttribute('aria-label', `Decrease ${piece.id}`);
+          decBtn.textContent = '-';
+          decBtn.addEventListener('click', () => {
+            normalizeInputValue(input);
+            input.value = String(clampInt(Number(input.value) - 1, 0, MAX_INPUT));
+            scheduleSolve(false);
+          });
+
+          const incBtn = document.createElement('button');
+          incBtn.type = 'button';
+          incBtn.className = 'step-btn';
+          incBtn.setAttribute('aria-label', `Increase ${piece.id}`);
+          incBtn.textContent = '+';
+          incBtn.addEventListener('click', () => {
+            normalizeInputValue(input);
+            input.value = String(clampInt(Number(input.value) + 1, 0, MAX_INPUT));
+            scheduleSolve(false);
+          });
+
+          stepper.append(decBtn, input, incBtn);
+
+          inputsById[piece.id] = input;
+
+          inputWrap.append(label, stepper);
+          card.append(shapeWrap, inputWrap);
+          inventoryGridEl.appendChild(card);
+        }
+      }
+
+      function createUsageCards() {
+        for (const piece of PIECES) {
+          const card = document.createElement('div');
+          card.className = 'usage-card';
+          card.innerHTML = `
+            <div class="usage-top">
+              <span>${piece.id}</span>
+              <span class="swatch" style="background:${piece.color}"></span>
+            </div>
+            <div class="usage-lines">
+              used: <span class="used-val">0</span><br>
+              unused: <span class="unused-val">0</span>
+            </div>
+          `;
+          usageGridEl.appendChild(card);
+          usageCardsById[piece.id] = card;
+        }
+      }
+
+      // ------------------------------
+      // Utility: placement precompute
+      // ------------------------------
+      function precomputePlacements() {
+        let idCounter = 0;
+
+        for (let t = 0; t < PIECES.length; t++) {
+          const rotations = rotationsByPiece[t];
+
+          for (const rot of rotations) {
+            for (let y = 0; y <= ROWS - rot.height; y++) {
+              for (let x = 0; x <= COLS - rot.width; x++) {
+                let mask = 0n;
+                let minIndex = Number.POSITIVE_INFINITY;
+                let bottomSum = 0;
+                const cells = [];
+                const rowMap = new Map();
+
+                for (let i = 0; i < rot.cells.length; i++) {
+                  const cx = rot.cells[i][0] + x;
+                  const cy = rot.cells[i][1] + y;
+                  const idx = cy * COLS + cx;
+
+                  cells.push(idx);
+                  minIndex = Math.min(minIndex, idx);
+                  bottomSum += cy;
+                  mask |= BIT_MASKS[idx];
+                  rowMap.set(cy, (rowMap.get(cy) || 0) + 1);
+                }
+
+                cells.sort((a, b) => a - b);
+                const rowAdds = Array.from(rowMap.entries()).sort((a, b) => a[0] - b[0]);
+
+                const placement = {
+                  id: idCounter++,
+                  type: t,
+                  mask,
+                  cells,
+                  minIndex,
+                  bottomSum,
+                  rowAdds
+                };
+
+                placements.push(placement);
+                placementsByAnchor[minIndex][t].push(placement);
+              }
+            }
+          }
+        }
+
+        // Deterministic order for each anchor/type bucket.
+        for (let i = 0; i < CELLS; i++) {
+          for (let t = 0; t < PIECES.length; t++) {
+            placementsByAnchor[i][t].sort((a, b) => a.id - b.id);
+          }
+        }
+      }
+
+      function getUniqueRotations(baseCells) {
+        const unique = new Map();
+        let current = baseCells.map(([x, y]) => [x, y]);
+
+        for (let r = 0; r < 4; r++) {
+          const normalized = normalizeCells(current);
+          const key = normalized.cells.map((c) => `${c[0]},${c[1]}`).join('|');
+          if (!unique.has(key)) {
+            unique.set(key, normalized);
+          }
+          current = current.map(([x, y]) => [y, -x]);
+        }
+
+        return Array.from(unique.values());
+      }
+
+      function normalizeCells(cells) {
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+
+        for (let i = 0; i < cells.length; i++) {
+          const x = cells[i][0];
+          const y = cells[i][1];
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+
+        const shifted = cells
+          .map(([x, y]) => [x - minX, y - minY])
+          .sort((a, b) => (a[1] - b[1]) || (a[0] - b[0]));
+
+        return {
+          cells: shifted,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1
+        };
+      }
+
+      // ------------------------------
+      // Utility: scoring and pruning
+      // ------------------------------
+      function canStillBeatBest(upperLines, upperFilled, best) {
+        if (upperLines < best.lines) {
+          return false;
+        }
+        if (upperLines === best.lines && upperFilled < best.filled) {
+          return false;
+        }
+        return true;
+      }
+
+      function getOptimisticBounds(index, occMask, rowDeadMask, filled, linesComplete, rowFill, remainingPieces) {
+        const openMask = SUFFIX_MASKS[index] & (FULL_MASK ^ occMask);
+        const openCells = popcount56(openMask);
+        const maxPiecesFit = Math.min(remainingPieces, Math.floor(openCells / PIECE_SIZE));
+        const maxAdd = maxPiecesFit * PIECE_SIZE;
+        const upperFilled = filled + maxAdd;
+
+        let upperLines = linesComplete;
+        if (maxAdd > 0) {
+          const missing = [];
+          for (let r = 0; r < ROWS; r++) {
+            const count = rowFill[r];
+            if (count === COLS) {
+              continue;
+            }
+            if ((rowDeadMask & (1 << r)) !== 0) {
+              continue;
+            }
+            missing.push(COLS - count);
+          }
+
+          missing.sort((a, b) => a - b);
+          let budget = maxAdd;
+          for (let i = 0; i < missing.length; i++) {
+            if (missing[i] <= budget) {
+              budget -= missing[i];
+              upperLines++;
+            } else {
+              break;
+            }
+          }
+        }
+
+        return { upperLines, upperFilled };
+      }
+
+      function countHoles(occMask) {
+        let holes = 0;
+        for (let x = 0; x < COLS; x++) {
+          let seenFilled = false;
+          for (let y = 0; y < ROWS; y++) {
+            const idx = y * COLS + x;
+            const filled = (occMask & BIT_MASKS[idx]) !== 0n;
+            if (filled) {
+              seenFilled = true;
+            } else if (seenFilled) {
+              holes++;
+            }
+          }
+        }
+        return holes;
+      }
+
+      function boardSignature(boardType) {
+        let out = '';
+        for (let i = 0; i < boardType.length; i++) {
+          const t = boardType[i];
+          out += t < 0 ? '.' : PIECES[t].id;
+        }
+        return out;
+      }
+
+      // ------------------------------
+      // Utility: UI helpers
+      // ------------------------------
+      function renderPieceShape(container, cells, color) {
+        const normalized = normalizeCells(cells);
+        const shape = document.createElement('div');
+        shape.className = 'piece-shape';
+        shape.style.gridTemplateColumns = `repeat(${normalized.width}, var(--shape-cell-size))`;
+        shape.style.gridTemplateRows = `repeat(${normalized.height}, var(--shape-cell-size))`;
+
+        for (let i = 0; i < normalized.cells.length; i++) {
+          const [x, y] = normalized.cells[i];
+          const cell = document.createElement('div');
+          cell.className = 'piece-shape-cell';
+          cell.style.gridColumn = String(x + 1);
+          cell.style.gridRow = String(y + 1);
+          cell.style.backgroundColor = color;
+          shape.appendChild(cell);
+        }
+
+        container.appendChild(shape);
+      }
+
+      function getCompleteRows(boardType) {
+        const completeRows = new Set();
+        for (let r = 0; r < ROWS; r++) {
+          const rowStart = r * COLS;
+          let filled = 0;
+          for (let x = 0; x < COLS; x++) {
+            if (boardType[rowStart + x] >= 0) {
+              filled++;
+            }
+          }
+          if (filled === COLS) {
+            completeRows.add(r);
+          }
+        }
+        return completeRows;
+      }
+
+      function updateRowHighlights(completeRows) {
+        if (!rowHighlightLayer || !boardCells.length) {
+          return;
+        }
+
+        const first = boardCells[0];
+        const cellW = first.offsetWidth;
+        const cellH = first.offsetHeight;
+        if (!cellW || !cellH) {
+          return;
+        }
+
+        const rightCell = boardCells[1] || first;
+        const downCell = boardCells[COLS] || first;
+        const gapX = Math.max(0, rightCell.offsetLeft - first.offsetLeft - cellW);
+        const gapY = Math.max(0, downCell.offsetTop - first.offsetTop - cellH);
+        const stepX = cellW + gapX;
+        const stepY = cellH + gapY;
+        const baseX = first.offsetLeft - gapX * 0.5;
+        const baseY = first.offsetTop - gapY * 0.5;
+        const rowWidth = stepX * COLS;
+        const rowHeight = cellH + gapY;
+
+        for (let r = 0; r < ROWS; r++) {
+          const rowEl = rowHighlightEls[r];
+          rowEl.style.left = `${baseX}px`;
+          rowEl.style.top = `${baseY + r * stepY}px`;
+          rowEl.style.width = `${rowWidth}px`;
+          rowEl.style.height = `${rowHeight}px`;
+          rowEl.classList.toggle('active', completeRows.has(r));
+        }
+      }
+
+      function drawPieceOutlines(boardType, boardInstance) {
+        if (!pieceOutlineLayer || !boardCells.length) {
+          return;
+        }
+
+        const width = boardEl.clientWidth;
+        const height = boardEl.clientHeight;
+        pieceOutlineLayer.setAttribute('width', String(width));
+        pieceOutlineLayer.setAttribute('height', String(height));
+        pieceOutlineLayer.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        pieceOutlineLayer.replaceChildren();
+
+        const first = boardCells[0];
+        const cellW = first.offsetWidth;
+        const cellH = first.offsetHeight;
+        if (!cellW || !cellH) {
+          return;
+        }
+
+        const rightCell = boardCells[1] || first;
+        const downCell = boardCells[COLS] || first;
+        const gapX = Math.max(0, rightCell.offsetLeft - first.offsetLeft - cellW);
+        const gapY = Math.max(0, downCell.offsetTop - first.offsetTop - cellH);
+        const stepX = cellW + gapX;
+        const stepY = cellH + gapY;
+        const baseX = first.offsetLeft - gapX * 0.5;
+        const baseY = first.offsetTop - gapY * 0.5;
+
+        const groups = new Map();
+        for (let i = 0; i < CELLS; i++) {
+          const instance = boardInstance[i];
+          if (instance < 0) continue;
+          const type = boardType[i];
+          const row = Math.floor(i / COLS);
+          const col = i % COLS;
+          let group = groups.get(instance);
+          if (!group) {
+            group = { type, cells: [] };
+            groups.set(instance, group);
+          }
+          group.cells.push([col, row]);
+        }
+
+        for (const group of groups.values()) {
+          const cellSet = new Set(group.cells.map(([c, r]) => `${c},${r}`));
+          const edges = new Map();
+
+          const addEdge = (sx, sy, ex, ey) => {
+            edges.set(`${sx},${sy}`, [ex, ey]);
+          };
+
+          for (let i = 0; i < group.cells.length; i++) {
+            const [c, r] = group.cells[i];
+            if (!cellSet.has(`${c},${r - 1}`)) addEdge(c, r, c + 1, r);
+            if (!cellSet.has(`${c + 1},${r}`)) addEdge(c + 1, r, c + 1, r + 1);
+            if (!cellSet.has(`${c},${r + 1}`)) addEdge(c + 1, r + 1, c, r + 1);
+            if (!cellSet.has(`${c - 1},${r}`)) addEdge(c, r + 1, c, r);
+          }
+
+          while (edges.size) {
+            const startKey = edges.keys().next().value;
+            const points = [parsePointKey(startKey)];
+            let currentKey = startKey;
+            let guard = 0;
+
+            while (edges.has(currentKey) && guard < 128) {
+              guard++;
+              const nextPoint = edges.get(currentKey);
+              edges.delete(currentKey);
+              points.push(nextPoint);
+              currentKey = `${nextPoint[0]},${nextPoint[1]}`;
+              if (currentKey === startKey) {
+                break;
+              }
+            }
+
+            if (points.length < 2) {
+              continue;
+            }
+
+            const d = points
+              .map(([x, y], idx) => `${idx === 0 ? 'M' : 'L'} ${fmtCoord(baseX + x * stepX)} ${fmtCoord(baseY + y * stepY)}`)
+              .join(' ') + (currentKey === startKey ? ' Z' : '');
+
+            const path = document.createElementNS(SVG_NS, 'path');
+            path.setAttribute('d', d);
+            path.setAttribute('class', 'piece-outline-path');
+            path.setAttribute('stroke', PIECES[group.type].outline);
+            pieceOutlineLayer.appendChild(path);
+          }
+        }
+      }
+
+      function parsePointKey(key) {
+        const [x, y] = key.split(',');
+        return [Number(x), Number(y)];
+      }
+
+      function fmtCoord(n) {
+        return (Math.round(n * 100) / 100).toString();
+      }
+
+      function clampInt(value, min, max) {
+        const n = Number.parseInt(value, 10);
+        if (Number.isNaN(n)) {
+          return min;
+        }
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function normalizeInputValue(inputEl) {
+        inputEl.value = String(clampInt(inputEl.value, 0, MAX_INPUT));
+      }
+
+      function getSolverCounts(inputCounts) {
+        return inputCounts.map((n) => Math.min(n, MAX_USABLE_PIECES));
+      }
+
+      function numberFmt(n) {
+        return new Intl.NumberFormat().format(n);
+      }
+
+      function getCssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      function darkenHexToRgba(hex, factor, alpha) {
+        const value = (hex || '').trim().replace('#', '');
+        let r = 22;
+        let g = 24;
+        let b = 28;
+
+        if (value.length === 3) {
+          r = parseInt(value[0] + value[0], 16);
+          g = parseInt(value[1] + value[1], 16);
+          b = parseInt(value[2] + value[2], 16);
+        } else if (value.length === 6) {
+          r = parseInt(value.slice(0, 2), 16);
+          g = parseInt(value.slice(2, 4), 16);
+          b = parseInt(value.slice(4, 6), 16);
+        }
+
+        const dr = Math.max(0, Math.min(255, Math.round(r * factor)));
+        const dg = Math.max(0, Math.min(255, Math.round(g * factor)));
+        const db = Math.max(0, Math.min(255, Math.round(b * factor)));
+        return `rgba(${dr}, ${dg}, ${db}, ${alpha})`;
+      }
+
+      // 56-bit popcount via two 28-bit chunks.
+      function popcount32(v) {
+        v = v - ((v >>> 1) & 0x55555555);
+        v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+        return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+      }
+
+      function popcount56(n) {
+        const mask28 = (1n << 28n) - 1n;
+        const low = Number(n & mask28);
+        const high = Number((n >> 28n) & mask28);
+        return popcount32(low) + popcount32(high);
+      }
+    })();
+  </script>
+</body>
+</html>
