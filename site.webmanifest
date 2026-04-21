@@ -1,0 +1,16 @@
+{
+  "name": "Component Board Calculator",
+  "short_name": "Board Calc",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#222741",
+  "theme_color": "#222741",
+  "icons": [
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "314x314",
+      "type": "image/png"
+    }
+  ]
+}
