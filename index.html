@@ -296,6 +296,7 @@
     .controls-panel {
       display: grid;
       gap: 10px;
+      padding-top: 8px;
     }
 
     .subhead {
@@ -305,6 +306,39 @@
       text-transform: uppercase;
       text-align: center;
       color: #161719;
+    }
+
+    .components-head {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+    }
+
+    .components-help-btn {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      border: 2px solid #1b2748;
+      border-radius: 999px;
+      background: linear-gradient(#c7d6f6, #8fa9d8);
+      color: #17254a;
+      font-size: 0.95rem;
+      font-weight: 900;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      touch-action: manipulation;
+    }
+
+    .components-help-btn:hover {
+      filter: brightness(1.04);
     }
 
     .inventory-grid {
@@ -1015,6 +1049,79 @@
       opacity: 0.92;
     }
 
+    .tips-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      background: rgba(9, 13, 29, 0.62);
+      backdrop-filter: blur(2px);
+    }
+
+    .tips-modal[hidden] {
+      display: none;
+    }
+
+    .tips-modal-card {
+      width: min(620px, 100%);
+      max-height: min(84vh, 760px);
+      overflow: auto;
+      border: 3px solid #0f1631;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      background: linear-gradient(#d8dcef, #bec4dd);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.75),
+        0 18px 32px rgba(0, 0, 0, 0.38);
+      color: #16203f;
+    }
+
+    .tips-modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .tips-modal-title {
+      margin: 0;
+      font-size: 1.06rem;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+    }
+
+    .tips-close-btn {
+      border: 2px solid #1f2e52;
+      border-radius: 9px;
+      background: linear-gradient(#c7d6f5, #95add9);
+      color: #15233f;
+      font-size: 0.86rem;
+      font-weight: 800;
+      padding: 5px 10px;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.66);
+      touch-action: manipulation;
+    }
+
+    .tips-close-btn:hover {
+      filter: brightness(1.03);
+    }
+
+    .tips-list {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 7px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #20273b;
+      line-height: 1.35;
+    }
+
     @media (max-width: 860px) {
       body {
         padding: 14px 10px 20px;
@@ -1026,6 +1133,10 @@
 
       .panel {
         padding: 10px;
+      }
+
+      .controls-panel {
+        padding-top: 6px;
       }
 
       .board-panel {
@@ -1137,6 +1248,12 @@
         width: 100%;
         padding: 9px 12px;
         font-size: clamp(1.1rem, 5.2vw, 1.45rem);
+      }
+
+      .components-help-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 0.88rem;
       }
 
       .board-width-options {
@@ -1300,7 +1417,10 @@
 
     <section class="panel controls-panel">
       <div id="layoutOptions" class="layout-options" aria-label="Top layout options" hidden></div>
-      <h2 class="subhead">Components</h2>
+      <div class="components-head">
+        <h2 class="subhead">Components</h2>
+        <button id="componentsHelpBtn" class="components-help-btn" type="button" aria-haspopup="dialog" aria-controls="tipsModal" aria-expanded="false" title="Tips and guidance">i</button>
+      </div>
       <div id="inventoryGrid" class="inventory-grid"></div>
 
       <div class="controls-row">
@@ -1317,6 +1437,23 @@
         </div>
       </div>
     </section>
+
+    <div id="tipsModal" class="tips-modal" hidden>
+      <div class="tips-modal-card" role="dialog" aria-modal="true" aria-labelledby="tipsModalTitle" aria-describedby="tipsList">
+        <div class="tips-modal-head">
+          <h3 id="tipsModalTitle" class="tips-modal-title">Quick Tips</h3>
+          <button id="tipsCloseBtn" class="tips-close-btn" type="button">Close</button>
+        </div>
+        <ul id="tipsList" class="tips-list">
+          <li>Change one quantity at a time, then compare Layout A/B/C/D to spot better layouts quickly.</li>
+          <li>Click any component icon to rotate it 90 degrees. Keep clicking to cycle through all rotations.</li>
+          <li>Use `Long (3x)` depth with `Extended search` for better variety and stronger alternate layouts.</li>
+          <li>If you care about specific components, enable `Advanced Priority Mode (strict)` and select those components.</li>
+          <li>Keep `Prioritize full board fill` ON when full-board outcomes matter most.</li>
+          <li>If results look similar, press `Another Layout` to see alternate high-scoring layouts.</li>
+        </ul>
+      </div>
+    </div>
 
     <section id="statsPanel" class="panel stats-panel">
       <div class="stats-panel-head">
@@ -1518,6 +1655,9 @@
       const anotherLayoutBtnEl = document.getElementById('anotherLayoutBtn');
       const resetBtnEl = document.getElementById('resetBtn');
       const layoutOptionsEl = document.getElementById('layoutOptions');
+      const componentsHelpBtnEl = document.getElementById('componentsHelpBtn');
+      const tipsModalEl = document.getElementById('tipsModal');
+      const tipsCloseBtnEl = document.getElementById('tipsCloseBtn');
 
       const statEls = {
         lines: document.getElementById('statLines'),
@@ -1685,6 +1825,25 @@
         startSolve('variant');
       });
 
+      if (componentsHelpBtnEl && tipsModalEl && tipsCloseBtnEl) {
+        componentsHelpBtnEl.addEventListener('click', () => {
+          setTipsModalOpen(true);
+        });
+        tipsCloseBtnEl.addEventListener('click', () => {
+          setTipsModalOpen(false);
+        });
+        tipsModalEl.addEventListener('click', (event) => {
+          if (event.target === tipsModalEl) {
+            setTipsModalOpen(false);
+          }
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && !tipsModalEl.hidden) {
+            setTipsModalOpen(false);
+          }
+        });
+      }
+
       if (liveCalculationEnabled) {
         setStatus(false, 'Live mode enabled');
         scheduleSolve(true);
@@ -1692,6 +1851,14 @@
         setStatus(false, 'Manual mode: press Calculate');
       }
       updateCalcControls();
+
+      function setTipsModalOpen(open) {
+        if (!tipsModalEl || !componentsHelpBtnEl) {
+          return;
+        }
+        tipsModalEl.hidden = !open;
+        componentsHelpBtnEl.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
 
       function initializeBoardSizeUi() {
         boardEl.style.setProperty('--board-cols', String(COLS));
